@@ -1,180 +1,571 @@
-import { Image } from 'expo-image';
-import { SymbolView } from 'expo-symbols';
-import { Platform, Pressable, ScrollView, StyleSheet } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-
-import { ExternalLink } from '@/components/external-link';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { Collapsible } from '@/components/ui/collapsible';
-import { WebBadge } from '@/components/web-badge';
+import React from 'react';
+import {
+  View,
+  Text,
+  ScrollView,
+} from 'react-native';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BottomTabInset, MaxContentWidth, Spacing } from '@/constants/theme';
-import { useTheme } from '@/hooks/use-theme';
+import { Card } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Collapsible } from '@/components/ui/collapsible';
 
-export default function TabTwoScreen() {
+export default function ProfileScreen() {
   const safeAreaInsets = useSafeAreaInsets();
-  const insets = {
-    ...safeAreaInsets,
-    bottom: safeAreaInsets.bottom + BottomTabInset + Spacing.three,
-  };
-  const theme = useTheme();
-
-  const contentPlatformStyle = Platform.select({
-    android: {
-      paddingTop: insets.top,
-      paddingLeft: insets.left,
-      paddingRight: insets.right,
-      paddingBottom: insets.bottom,
-    },
-    web: {
-      paddingTop: Spacing.six,
-      paddingBottom: Spacing.four,
-    },
-  });
 
   return (
-    <ScrollView
-      style={[styles.scrollView, { backgroundColor: theme.background }]}
-      contentInset={insets}
-      contentContainerStyle={[styles.contentContainer, contentPlatformStyle]}>
-      <ThemedView style={styles.container}>
-        <ThemedView style={styles.titleContainer}>
-          <ThemedText type="subtitle">Explore</ThemedText>
-          <ThemedText style={styles.centerText} themeColor="textSecondary">
-            This starter app includes example{'\n'}code to help you get started.
-          </ThemedText>
+    <SafeAreaView
+      style={{
+        flex: 1,
+        backgroundColor: '#F8FAFC',
+      }}
+    >
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={{
+          alignItems: 'center',
+          paddingHorizontal: 16,
+          paddingTop: 8,
+          paddingBottom:
+            safeAreaInsets.bottom +
+            BottomTabInset +
+            Spacing.six,
+        }}
+      >
+        <View
+          style={{
+            width: '100%',
+            maxWidth: MaxContentWidth,
+          }}
+        >
+          {/* Top Header */}
+          <View
+            style={{
+              marginBottom: 14,
+              paddingHorizontal: 4,
+            }}
+          >
+            <View
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                gap: 8,
+              }}
+            >
+              <Text
+                style={{
+                  fontSize: 22,
+                  fontWeight: '900',
+                  color: '#0F172A',
+                }}
+              >
+                Medical ID & Survival
+              </Text>
 
-          <ExternalLink href="https://docs.expo.dev" asChild>
-            <Pressable style={({ pressed }) => pressed && styles.pressed}>
-              <ThemedView type="backgroundElement" style={styles.linkButton}>
-                <ThemedText type="link">Expo documentation</ThemedText>
-                <SymbolView
-                  tintColor={theme.text}
-                  name={{ ios: 'arrow.up.right.square', android: 'link', web: 'link' }}
-                  size={12}
-                />
-              </ThemedView>
-            </Pressable>
-          </ExternalLink>
-        </ThemedView>
-
-        <ThemedView style={styles.sectionsWrapper}>
-          <Collapsible title="File-based routing">
-            <ThemedText type="small">
-              This app has two screens: <ThemedText type="code">src/app/index.tsx</ThemedText> and{' '}
-              <ThemedText type="code">src/app/explore.tsx</ThemedText>
-            </ThemedText>
-            <ThemedText type="small">
-              The layout file in <ThemedText type="code">src/app/_layout.tsx</ThemedText> sets up
-              the tab navigator.
-            </ThemedText>
-            <ExternalLink href="https://docs.expo.dev/router/introduction">
-              <ThemedText type="linkPrimary">Learn more</ThemedText>
-            </ExternalLink>
-          </Collapsible>
-
-          <Collapsible title="Android, iOS, and web support">
-            <ThemedView type="backgroundElement" style={styles.collapsibleContent}>
-              <ThemedText type="small">
-                You can open this project on Android, iOS, and the web. To open the web version,
-                press <ThemedText type="smallBold">w</ThemedText> in the terminal running this
-                project.
-              </ThemedText>
-              <Image
-                source={require('@/assets/images/tutorial-web.png')}
-                style={styles.imageTutorial}
+              <Badge
+                label="OFFLINE CACHED"
+                variant="success"
               />
-            </ThemedView>
-          </Collapsible>
+            </View>
 
-          <Collapsible title="Images">
-            <ThemedText type="small">
-              For static images, you can use the <ThemedText type="code">@2x</ThemedText> and{' '}
-              <ThemedText type="code">@3x</ThemedText> suffixes to provide files for different
-              screen densities.
-            </ThemedText>
-            <Image source={require('@/assets/images/react-logo.png')} style={styles.imageReact} />
-            <ExternalLink href="https://reactnative.dev/docs/images">
-              <ThemedText type="linkPrimary">Learn more</ThemedText>
-            </ExternalLink>
-          </Collapsible>
+            <Text
+              style={{
+                fontSize: 12,
+                fontWeight: '600',
+                color: '#64748B',
+                marginTop: 2,
+              }}
+            >
+              Accessible by paramedics & rescue teams without internet
+            </Text>
+          </View>
 
-          <Collapsible title="Light and dark mode components">
-            <ThemedText type="small">
-              This template has light and dark mode support. The{' '}
-              <ThemedText type="code">useColorScheme()</ThemedText> hook lets you inspect what the
-              user&apos;s current color scheme is, and so you can adjust UI colors accordingly.
-            </ThemedText>
-            <ExternalLink href="https://docs.expo.dev/develop/user-interface/color-themes/">
-              <ThemedText type="linkPrimary">Learn more</ThemedText>
-            </ExternalLink>
-          </Collapsible>
+          {/* Trekker Medical Profile Card */}
+          <Card
+            variant="elevated"
+            style={{
+              backgroundColor: '#FFFFFF',
+              borderColor: '#E2E8F0',
+              padding: 16,
+              borderRadius: 20,
+              marginBottom: 16,
+            }}
+          >
+            <View
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                gap: 14,
+                marginBottom: 16,
+              }}
+            >
+              <View
+                style={{
+                  width: 56,
+                  height: 56,
+                  borderRadius: 28,
+                  backgroundColor: '#0F172A',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              >
+                <Text
+                  style={{
+                    fontSize: 20,
+                    fontWeight: '900',
+                    color: '#FFFFFF',
+                  }}
+                >
+                  SA
+                </Text>
+              </View>
 
-          <Collapsible title="Animations">
-            <ThemedText type="small">
-              This template includes an example of an animated component. The{' '}
-              <ThemedText type="code">src/components/ui/collapsible.tsx</ThemedText> component uses
-              the powerful <ThemedText type="code">react-native-reanimated</ThemedText> library to
-              animate opening this hint.
-            </ThemedText>
-          </Collapsible>
-        </ThemedView>
-        {Platform.OS === 'web' && <WebBadge />}
-      </ThemedView>
-    </ScrollView>
+              <View
+                style={{
+                  flex: 1,
+                }}
+              >
+                <Text
+                  style={{
+                    fontSize: 18,
+                    fontWeight: '900',
+                    color: '#0F172A',
+                  }}
+                >
+                  Suraj Acharya
+                </Text>
+
+                <Text
+                  style={{
+                    fontSize: 12,
+                    color: '#64748B',
+                    fontWeight: '500',
+                    marginTop: 1,
+                  }}
+                >
+                  High-Altitude Trekker · Age 26
+                </Text>
+
+                <View
+                  style={{
+                    backgroundColor: '#FEE2E2',
+                    alignSelf: 'flex-start',
+                    paddingHorizontal: 8,
+                    paddingVertical: 3,
+                    borderRadius: 8,
+                    marginTop: 6,
+                  }}
+                >
+                  <Text
+                    style={{
+                      fontSize: 10,
+                      fontWeight: '800',
+                      color: '#DC2626',
+                      letterSpacing: 0.5,
+                    }}
+                  >
+                    BLOOD GROUP: O+ POSITIVE
+                  </Text>
+                </View>
+              </View>
+            </View>
+
+            <View
+              style={{
+                backgroundColor: '#F8FAFC',
+                borderRadius: 14,
+                padding: 12,
+                borderWidth: 1,
+                borderColor: '#F1F5F9',
+                gap: 10,
+              }}
+            >
+              <View
+                style={{
+                  flexDirection: 'row',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                }}
+              >
+                <Text
+                  style={{
+                    fontSize: 10,
+                    fontWeight: '700',
+                    color: '#94A3B8',
+                    letterSpacing: 0.5,
+                  }}
+                >
+                  ALLERGIES
+                </Text>
+
+                <Text
+                  style={{
+                    fontSize: 12,
+                    fontWeight: '800',
+                    color: '#1E293B',
+                  }}
+                >
+                  Penicillin, Sulfa
+                </Text>
+              </View>
+
+              <View
+                style={{
+                  flexDirection: 'row',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                }}
+              >
+                <Text
+                  style={{
+                    fontSize: 10,
+                    fontWeight: '700',
+                    color: '#94A3B8',
+                    letterSpacing: 0.5,
+                  }}
+                >
+                  HELI EVAC COVERAGE
+                </Text>
+
+                <Text
+                  style={{
+                    fontSize: 12,
+                    fontWeight: '800',
+                    color: '#1E293B',
+                  }}
+                >
+                  Active (Policy #NEP-9921)
+                </Text>
+              </View>
+
+              <View
+                style={{
+                  flexDirection: 'row',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                }}
+              >
+                <Text
+                  style={{
+                    fontSize: 10,
+                    fontWeight: '700',
+                    color: '#94A3B8',
+                    letterSpacing: 0.5,
+                  }}
+                >
+                  TIMS PERMIT
+                </Text>
+
+                <Text
+                  style={{
+                    fontSize: 12,
+                    fontWeight: '800',
+                    color: '#1E293B',
+                  }}
+                >
+                  #NPR-881923 (Solukhumbu)
+                </Text>
+              </View>
+
+              <View
+                style={{
+                  flexDirection: 'row',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                }}
+              >
+                <Text
+                  style={{
+                    fontSize: 10,
+                    fontWeight: '700',
+                    color: '#94A3B8',
+                    letterSpacing: 0.5,
+                  }}
+                >
+                  PRIMARY LANGUAGE
+                </Text>
+
+                <Text
+                  style={{
+                    fontSize: 12,
+                    fontWeight: '800',
+                    color: '#1E293B',
+                  }}
+                >
+                  Nepali, English
+                </Text>
+              </View>
+            </View>
+          </Card>
+
+          {/* Offline Survival Field Guides */}
+          <View
+            style={{
+              marginTop: 8,
+            }}
+          >
+            <Text
+              style={{
+                fontSize: 15,
+                fontWeight: '800',
+                color: '#0F172A',
+                paddingHorizontal: 4,
+              }}
+            >
+              Offline Disaster Field Manual
+            </Text>
+
+            <Text
+              style={{
+                fontSize: 11,
+                color: '#64748B',
+                fontWeight: '500',
+                marginTop: 2,
+                marginBottom: 10,
+                paddingHorizontal: 4,
+              }}
+            >
+              Critical protocols for mountain, earthquake & wilderness survival
+            </Text>
+
+            <View
+              style={{
+                gap: 10,
+              }}
+            >
+              {/* AMS */}
+              <Collapsible title="🏔️ Acute Mountain Sickness (AMS / HAPE)">
+                <View
+                  style={{
+                    gap: 8,
+                    paddingTop: 8,
+                  }}
+                >
+                  <Text
+                    style={{
+                      fontSize: 12,
+                      color: '#334155',
+                      lineHeight: 18,
+                    }}
+                  >
+                    1.{' '}
+                    <Text
+                      style={{
+                        fontWeight: '800',
+                        color: '#0F172A',
+                      }}
+                    >
+                      Immediate Descent:
+                    </Text>{' '}
+                    Descend at least 500m to 1,000m immediately. Do not ascend with symptoms.
+                  </Text>
+
+                  <Text
+                    style={{
+                      fontSize: 12,
+                      color: '#334155',
+                      lineHeight: 18,
+                    }}
+                  >
+                    2.{' '}
+                    <Text
+                      style={{
+                        fontWeight: '800',
+                        color: '#0F172A',
+                      }}
+                    >
+                      Oxygen & Warmth:
+                    </Text>{' '}
+                    Administer portable supplemental oxygen (2–4 L/min) or hyperbaric chamber bag.
+                  </Text>
+
+                  <Text
+                    style={{
+                      fontSize: 12,
+                      color: '#334155',
+                      lineHeight: 18,
+                    }}
+                  >
+                    3.{' '}
+                    <Text
+                      style={{
+                        fontWeight: '800',
+                        color: '#0F172A',
+                      }}
+                    >
+                      Medication:
+                    </Text>{' '}
+                    Acetazolamide (Diamox) 250mg or Dexamethasone if advised by medical lead.
+                  </Text>
+                </View>
+              </Collapsible>
+
+              {/* Helicopter Signaling */}
+              <Collapsible title="🚁 Ground-to-Air Helicopter Signaling">
+                <View
+                  style={{
+                    gap: 8,
+                    paddingTop: 8,
+                  }}
+                >
+                  <Text
+                    style={{
+                      fontSize: 12,
+                      color: '#334155',
+                      lineHeight: 18,
+                    }}
+                  >
+                    •{' '}
+                    <Text
+                      style={{
+                        fontWeight: '800',
+                        color: '#0F172A',
+                      }}
+                    >
+                      "Y" Arms Form:
+                    </Text>{' '}
+                    Both arms raised in "V/Y" shape above head = "YES / WE NEED RESCUE".
+                  </Text>
+
+                  <Text
+                    style={{
+                      fontSize: 12,
+                      color: '#334155',
+                      lineHeight: 18,
+                    }}
+                  >
+                    •{' '}
+                    <Text
+                      style={{
+                        fontWeight: '800',
+                        color: '#0F172A',
+                      }}
+                    >
+                      "N" One Arm Up:
+                    </Text>{' '}
+                    One arm raised, other down = "NO / ALL OK".
+                  </Text>
+
+                  <Text
+                    style={{
+                      fontSize: 12,
+                      color: '#334155',
+                      lineHeight: 18,
+                    }}
+                  >
+                    •{' '}
+                    <Text
+                      style={{
+                        fontWeight: '800',
+                        color: '#0F172A',
+                      }}
+                    >
+                      Landing Zone:
+                    </Text>{' '}
+                    Clear a 25m x 25m flat zone of loose rocks, tarps, and gear. Stand with back to wind.
+                  </Text>
+                </View>
+              </Collapsible>
+
+              {/* Frostbite */}
+              <Collapsible title="❄️ Frostbite & Hypothermia Protocol">
+                <View
+                  style={{
+                    gap: 8,
+                    paddingTop: 8,
+                  }}
+                >
+                  <Text
+                    style={{
+                      fontSize: 12,
+                      color: '#334155',
+                      lineHeight: 18,
+                    }}
+                  >
+                    •{' '}
+                    <Text
+                      style={{
+                        fontWeight: '800',
+                        color: '#0F172A',
+                      }}
+                    >
+                      Rewarming:
+                    </Text>{' '}
+                    Use body-to-body contact or warm water (37°C–39°C). Never rub frostbitten skin with snow.
+                  </Text>
+
+                  <Text
+                    style={{
+                      fontSize: 12,
+                      color: '#334155',
+                      lineHeight: 18,
+                    }}
+                  >
+                    •{' '}
+                    <Text
+                      style={{
+                        fontWeight: '800',
+                        color: '#0F172A',
+                      }}
+                    >
+                      Insulation:
+                    </Text>{' '}
+                    Remove wet layers; insulate victim from ground with sleeping pads or backpacks.
+                  </Text>
+                </View>
+              </Collapsible>
+
+              {/* Earthquake */}
+              <Collapsible title="⚠️ Earthquake & Structural Collapse">
+                <View
+                  style={{
+                    gap: 8,
+                    paddingTop: 8,
+                  }}
+                >
+                  <Text
+                    style={{
+                      fontSize: 12,
+                      color: '#334155',
+                      lineHeight: 18,
+                    }}
+                  >
+                    •{' '}
+                    <Text
+                      style={{
+                        fontWeight: '800',
+                        color: '#0F172A',
+                      }}
+                    >
+                      Drop, Cover & Hold:
+                    </Text>{' '}
+                    Stay clear of stone walls and fragile masonry.
+                  </Text>
+
+                  <Text
+                    style={{
+                      fontSize: 12,
+                      color: '#334155',
+                      lineHeight: 18,
+                    }}
+                  >
+                    •{' '}
+                    <Text
+                      style={{
+                        fontWeight: '800',
+                        color: '#0F172A',
+                      }}
+                    >
+                      If Trapped:
+                    </Text>{' '}
+                    Tap rhythmically on pipes/stones (3 taps = SOS) rather than shouting to conserve oxygen and energy.
+                  </Text>
+                </View>
+              </Collapsible>
+            </View>
+          </View>
+        </View>
+      </ScrollView>
+    </SafeAreaView>
   );
 }
-
-const styles = StyleSheet.create({
-  scrollView: {
-    flex: 1,
-  },
-  contentContainer: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-  },
-  container: {
-    maxWidth: MaxContentWidth,
-    flexGrow: 1,
-  },
-  titleContainer: {
-    gap: Spacing.three,
-    alignItems: 'center',
-    paddingHorizontal: Spacing.four,
-    paddingVertical: Spacing.six,
-  },
-  centerText: {
-    textAlign: 'center',
-  },
-  pressed: {
-    opacity: 0.7,
-  },
-  linkButton: {
-    flexDirection: 'row',
-    paddingHorizontal: Spacing.four,
-    paddingVertical: Spacing.two,
-    borderRadius: Spacing.five,
-    justifyContent: 'center',
-    gap: Spacing.one,
-    alignItems: 'center',
-  },
-  sectionsWrapper: {
-    gap: Spacing.five,
-    paddingHorizontal: Spacing.four,
-    paddingTop: Spacing.three,
-  },
-  collapsibleContent: {
-    alignItems: 'center',
-  },
-  imageTutorial: {
-    width: '100%',
-    aspectRatio: 296 / 171,
-    borderRadius: Spacing.three,
-    marginTop: Spacing.two,
-  },
-  imageReact: {
-    width: 100,
-    height: 100,
-    alignSelf: 'center',
-  },
-});
