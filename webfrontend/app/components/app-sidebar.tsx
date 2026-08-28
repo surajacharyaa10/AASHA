@@ -25,7 +25,6 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
-  SidebarTrigger,
 } from "@/components/ui/sidebar";
 
 const menuItems = [
@@ -35,8 +34,8 @@ const menuItems = [
     icon: LayoutDashboard,
   },
   {
-    title: "People",
-    url: "/people",
+    title: "Rescue Team",
+    url: "/rescue-team",
     icon: Users,
   },
   {
@@ -62,7 +61,7 @@ export function AppSidebar() {
       collapsible="icon"
       className="border-r border-slate-200 bg-white"
     >
-      {/* ───────────────── Header ───────────────── */}
+
       <SidebarHeader className="border-b border-slate-100">
   <div className="relative flex h-16 items-center gap-3 px-4 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-0">
 
@@ -89,7 +88,7 @@ export function AppSidebar() {
 </SidebarHeader>
 
  
-      {/* ───────────────── Content ───────────────── */}
+
       <SidebarContent className="px-2 py-4">
         <SidebarGroup>
           <SidebarGroupLabel className="mb-2 px-3 text-[11px] font-semibold uppercase tracking-wider text-slate-400">
@@ -157,7 +156,6 @@ export function AppSidebar() {
         </SidebarGroup>
       </SidebarContent>
 
-      {/* ───────────────── Footer ───────────────── */}
       <SidebarFooter className="border-t border-slate-100 p-2">
         <SidebarMenu>
           <SidebarMenuItem>
