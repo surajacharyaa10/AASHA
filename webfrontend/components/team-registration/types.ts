@@ -40,4 +40,7 @@ export const RESCUE_CAPABILITIES = [
   "Communication & BLE Relay",
 ];
 
-export const BACKEND_URL = "http://localhost:4000";
+import BACKEND_URL_CONFIG from "@/lib/config";
+
+export const BACKEND_URL = BACKEND_URL_CONFIG;
+

@@ -46,6 +46,12 @@ export interface SosEvent {
     eta: string;
     capabilities: string;
   };
+  // New profile fields
+  name?: string;
+  address?: string;
+  email?: string;
+  phone?: string;
+  bloodGroup?: string;
 }
 
 interface SosEventDetailProps {
@@ -95,7 +101,10 @@ function InfoStat({ icon, label, value, sub }: { icon: React.ReactNode; label: s
   );
 }
 
-const BACKEND = "http://localhost:4000";
+import BACKEND_URL from "@/lib/config";
+
+const BACKEND = BACKEND_URL;
+
 
 export default function SosEventDetail({
   event = DEFAULT_EVENT,
@@ -105,7 +114,8 @@ export default function SosEventDetail({
 }: SosEventDetailProps) {
   const [currentStatus, setCurrentStatus] = useState<SosStatus>(event.status);
   const [assignedTeam, setAssignedTeam] = useState<string | null>(
-    event.assignedTeam ?? (event.status === "assigned" ? event.suggestedTeam?.name ?? null : null)
+    // Use the real team name stored on the event (set by dispatch endpoint)
+    event.assignedTeam ?? null
   );
   const [nearestTeam, setNearestTeam] = useState<any>(null);
   const [loadingTeam, setLoadingTeam] = useState(false);
@@ -161,11 +171,18 @@ export default function SosEventDetail({
     if (onResolve) onResolve(event.id);
   };
 
+  const resolvedByLabel  = assignedTeam ?? "Rescue Unit";
+  const assignedToLabel  = assignedTeam ?? (event.status === "assigned" ? "Rescue Team" : "Unknown Team");
+
   const statusHistory = [
-    ...(currentStatus === "resolved" ? [{ title: `Resolved by ${assignedTeam ?? "Rescue Unit"}`, meta: "Just now · Extraction confirmed safe", dot: "bg-emerald-500" }] : []),
-    ...(currentStatus === "assigned" || currentStatus === "resolved" ? [{ title: `Assigned to ${assignedTeam ?? event.suggestedTeam?.name ?? "Team Echo"}`, meta: "Field team dispatched · ETA en route", dot: "bg-blue-500" }] : [{ title: "Awaiting team assignment", meta: `${event.receivedTime ?? "14:29"} NPT · Dispatcher queue`, dot: "bg-red-500" }]),
-    { title: "SOS validated by mesh relay", meta: `Mesh Hop 0${event.meshHops ?? 4} confirmed via LoRa relay`, dot: "bg-slate-400" },
-    { title: "Distress beacon received", meta: `${event.receivedTime ?? "14:27"} NPT · GPS accuracy ${event.accuracy ?? "±18m"}`, dot: "bg-blue-500" },
+    ...(currentStatus === "resolved"
+      ? [{ title: `Resolved by ${resolvedByLabel}`, meta: "Extraction confirmed safe", dot: "bg-emerald-500" }]
+      : []),
+    ...(currentStatus === "assigned" || currentStatus === "resolved"
+      ? [{ title: `Assigned to ${assignedToLabel}`, meta: "Field team dispatched · ETA en route", dot: "bg-blue-500" }]
+      : [{ title: "Awaiting team assignment", meta: `${event.receivedTime ?? "--:--"} NPT · Dispatcher queue`, dot: "bg-red-500" }]),
+    { title: "SOS validated by mesh relay", meta: `Mesh Hop ${String(event.meshHops ?? 0).padStart(2, "0")} confirmed via LoRa relay`, dot: "bg-slate-400" },
+    { title: "Distress beacon received", meta: `${event.receivedTime ?? "--:--"} NPT · GPS accuracy ${event.accuracy ?? "±15m"}`, dot: "bg-blue-500" },
   ];
 
   return (
@@ -234,15 +251,20 @@ export default function SosEventDetail({
           {/* Map panel */}
           <SOSMapPanel event={event} currentStatus={currentStatus} />
 
-          {/* Note panel */}
-          <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-xs">
-            <h3 className="mb-3 text-base font-bold text-slate-900">Distress Transmission Note</h3>
-            <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
-              <p className="text-sm font-medium italic leading-relaxed text-slate-700">
-                &ldquo;{event.callerNote ?? "Emergency assistance requested. Trekkers require immediate coordination and medical support."}&rdquo;
-              </p>
+          {/* Profile Details Section */}
+          {(event.name || event.address || event.email || event.phone || event.bloodGroup) && (
+            <div className="mt-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-xs">
+              <h3 className="mb-3 text-base font-bold text-slate-900">User Profile Details</h3>
+              <ul className="list-none space-y-2 text-sm text-slate-700">
+                {event.name && <li><strong>Name:</strong> {event.name}</li>}
+                {event.address && <li><strong>Address:</strong> {event.address}</li>}
+                {event.email && <li><strong>Email:</strong> {event.email}</li>}
+                {event.phone && <li><strong>Phone:</strong> {event.phone}</li>}
+                {event.bloodGroup && <li><strong>Blood Group:</strong> {event.bloodGroup}</li>}
+              </ul>
             </div>
-          </div>
+          )}
+
         </div>
 
         {/* Right column */}

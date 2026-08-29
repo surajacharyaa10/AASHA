@@ -11,7 +11,10 @@ import { TeamMetrics } from "@/components/rescue-team/TeamMetrics";
 import { TeamFilterBar } from "@/components/rescue-team/TeamFilterBar";
 import { TeamTable } from "@/components/rescue-team/TeamTable";
 
-const BACKEND_URL = "http://localhost:4000";
+import BACKEND_URL_CONFIG from "@/lib/config";
+
+const BACKEND_URL = BACKEND_URL_CONFIG;
+
 
 const PROVINCE_COORDS: Record<string, { lat: number; lng: number }> = {
   "Koshi Province":     { lat: 27.34, lng: 87.27 },

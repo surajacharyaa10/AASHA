@@ -30,8 +30,8 @@ export default function AppTabs() {
           <TabTrigger name="mesh" href="/mesh" asChild>
             <TabButton>📡 Mesh</TabButton>
           </TabTrigger>
-          <TabTrigger name="explore" href="/explore" asChild>
-            <TabButton>📖 Guide</TabButton>
+          <TabTrigger name="weather" href="/weather" asChild>
+            <TabButton>⛅️ Weather</TabButton>
           </TabTrigger>
         </CustomTabList>
       </TabList>

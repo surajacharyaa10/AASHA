@@ -1,7 +1,8 @@
 import { Tabs } from 'expo-router';
 import React from 'react';
-import { useColorScheme, Image } from 'react-native';
+import { useColorScheme } from 'react-native';
 import { Colors } from '@/constants/theme';
+import { Ionicons } from '@expo/vector-icons';
 
 export default function AppTabs() {
   const scheme = useColorScheme();
@@ -11,10 +12,10 @@ export default function AppTabs() {
     <Tabs
       screenOptions={{
         headerShown: false,
-        tabBarActiveTintColor: colors.text,
+        tabBarActiveTintColor: '#000000',
         tabBarInactiveTintColor: '#94A3B8',
         tabBarStyle: {
-          backgroundColor: colors.background,
+          backgroundColor: '#FFFFFF',
           borderTopColor: '#F1F5F9',
           height: 60,
           paddingBottom: 8,
@@ -31,10 +32,7 @@ export default function AppTabs() {
         options={{
           title: 'SOS',
           tabBarIcon: ({ color, size }) => (
-            <Image
-              source={require('@/assets/images/tabIcons/home.png')}
-              style={{ width: size || 22, height: size || 22, tintColor: color }}
-            />
+            <Ionicons name="warning" size={size || 22} color={color} />
           ),
         }}
       />
@@ -44,10 +42,7 @@ export default function AppTabs() {
         options={{
           title: 'Call',
           tabBarIcon: ({ color, size }) => (
-            <Image
-              source={require('@/assets/images/tabIcons/explore.png')}
-              style={{ width: size || 22, height: size || 22, tintColor: color }}
-            />
+            <Ionicons name="call" size={size || 22} color={color} />
           ),
         }}
       />
@@ -57,24 +52,25 @@ export default function AppTabs() {
         options={{
           title: 'Mesh',
           tabBarIcon: ({ color, size }) => (
-            <Image
-              source={require('@/assets/images/tabIcons/home.png')}
-              style={{ width: size || 22, height: size || 22, tintColor: color }}
-            />
+            <Ionicons name="wifi" size={size || 22} color={color} />
           ),
         }}
       />
 
       <Tabs.Screen
-        name="explore"
+        name="weather"
         options={{
-          title: 'Guide',
+          title: 'Weather',
           tabBarIcon: ({ color, size }) => (
-            <Image
-              source={require('@/assets/images/tabIcons/explore.png')}
-              style={{ width: size || 22, height: size || 22, tintColor: color }}
-            />
+            <Ionicons name="partly-sunny" size={size || 22} color={color} />
           ),
+        }}
+      />
+
+      <Tabs.Screen
+        name="profile"
+        options={{
+          href: null,
         }}
       />
     </Tabs>

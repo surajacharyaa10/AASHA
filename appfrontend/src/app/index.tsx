@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { Link } from 'expo-router';
 import {
   View,
   Text,
@@ -8,6 +9,7 @@ import {
   Pressable,
   Alert,
 } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BottomTabInset, MaxContentWidth, Spacing } from '@/constants/theme';
 import { SosButton } from '@/components/sos/sos-button';
@@ -122,12 +124,23 @@ export default function HomeScreen() {
     };
   }, []);
 
-  const handleTriggerSos = () => {
+  const handleTriggerSos = async () => {
+    let profileData = {};
+    try {
+      const storedProfile = await AsyncStorage.getItem('userProfile');
+      if (storedProfile) {
+        profileData = JSON.parse(storedProfile);
+      }
+    } catch (e) {
+      console.error('Failed to load profile for SOS', e);
+    }
+
     sendSos({
       latitude:  location.latitude,
       longitude: location.longitude,
       battery: batteryLevel,
-      note
+      note,
+      ...profileData,
     });
   };
 
@@ -183,6 +196,19 @@ export default function HomeScreen() {
                     : `GPS · ${formatAccuracy(location.accuracy)}`}
                 </Text>
               </View>
+
+              {/* Profile Button */}
+              <Link href="/profile" asChild>
+                <Pressable
+                  style={({ pressed }) => [
+                    styles.notificationBtn,
+                    { marginRight: 8 },
+                    pressed && { opacity: 0.7, backgroundColor: '#E2E8F0' },
+                  ]}
+                >
+                  <Icon name="profile" size={16} color="#334155" />
+                </Pressable>
+              </Link>
 
               {/* Notification Button */}
               <Pressable

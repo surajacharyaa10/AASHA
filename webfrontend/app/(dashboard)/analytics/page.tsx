@@ -21,10 +21,12 @@ import {
 import { io } from "socket.io-client";
 
 import { Button } from "@/components/ui/button";
+import BACKEND_URL from "@/lib/config";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 
-const BACKEND = "http://localhost:4000";
+const BACKEND = BACKEND_URL;
+
 
 type TimeRange = "24h" | "7d";
 

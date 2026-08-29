@@ -1,7 +1,9 @@
 import type { SosStatus } from "@/app/components/SOSDetails";
+import BACKEND_URL from "@/lib/config";
 
-export const BACKEND = "http://localhost:4000";
+export const BACKEND = BACKEND_URL;
 export const MAP_CENTER = { lat: 27.94, lng: 86.79 };
+
 
 export const STATUS_STYLES: Record<
   SosStatus,
@@ -59,14 +61,13 @@ export function mapApiEventToSosEvent(apiEvent: any) {
     terrainLabel: "marked SOS location",
     callerNote:
       apiEvent.note && apiEvent.note.trim().length > 0 ? apiEvent.note.trim() : "Nothing",
-    assignedTeam:
-      apiEvent.assignedTeamName || (apiEvent.status === "assigned" ? undefined : undefined),
-    suggestedTeam: {
-      name: "Team Echo",
-      station: "Lukla Station · 2.8 km away",
-      status: "Available",
-      eta: "18 min",
-      capabilities: "Rope Rescue · Trauma Care",
-    },
+    name: apiEvent.name ?? undefined,
+    address: apiEvent.address ?? undefined,
+    email: apiEvent.email ?? undefined,
+    phone: apiEvent.phone ?? undefined,
+    bloodGroup: apiEvent.bloodGroup ?? undefined,
+    assignedTeam: apiEvent.assignedTeamName ?? null,
+    // suggestedTeam is populated live from /api/dispatch/nearest — no hardcoded fallback
+    suggestedTeam: undefined,
   };
 }

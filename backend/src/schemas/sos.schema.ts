@@ -9,6 +9,11 @@ export const createSosSchema = z.object({
   hopCount: z.number().int().min(0).optional(),
   reportedAt: z.string().datetime(),
   note: z.string().max(500).optional(),
+  name: z.string().optional(),
+  address: z.string().optional(),
+  email: z.string().optional(),
+  phone: z.string().optional(),
+  bloodGroup: z.string().optional(),
 }).passthrough();
 
 export const assignTeamSchema = z.object({

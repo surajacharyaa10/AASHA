@@ -12,6 +12,9 @@ import notificationRoutes from './routes/notification.routes';
 import teamRegistrationRoutes from './routes/teamRegistration.routes';
 import dispatchRoutes from './routes/dispatch.routes';
 import analyticsRoutes from './routes/analytics.routes';
+import profileRoutes from './routes/profile.routes';
+import weatherRoutes from './routes/weather.routes';
+import disasterRoutes from './routes/disaster.routes';
 import { setupSockets } from './sockets';
 import { connectDB } from './config/database';
 import { connectRedis } from './config/redis';
@@ -66,6 +69,9 @@ app.use('/api/notifications', notificationRoutes);
 app.use('/api/team-registrations', teamRegistrationRoutes);
 app.use('/api/dispatch', dispatchRoutes);
 app.use('/api/analytics', analyticsRoutes);
+app.use('/api/profile', profileRoutes);
+app.use('/api/weather', weatherRoutes);
+app.use('/api/disasters', disasterRoutes);
 
 // Root path handler
 app.get('/', (req, res) => {

@@ -7,7 +7,10 @@ import type { NotificationItem } from "@/components/notifications/types";
 import { BroadcastComposer } from "@/components/notifications/BroadcastComposer";
 import { BroadcastHistory } from "@/components/notifications/BroadcastHistory";
 
-const BACKEND_URL = "http://localhost:4000";
+import BACKEND_URL_CONFIG from "@/lib/config";
+
+const BACKEND_URL = BACKEND_URL_CONFIG;
+
 
 export const NEPAL_REGIONS: Record<string, string[]> = {
   "Koshi Province": ["Bhojpur", "Dhankuta", "Ilam", "Jhapa", "Khotang", "Morang", "Okhaldhunga", "Panchthar", "Sankhuwasabha", "Solukhumbu", "Sunsari", "Taplejung", "Terhathum", "Udayapur"],

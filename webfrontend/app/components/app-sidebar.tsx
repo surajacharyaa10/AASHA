@@ -12,6 +12,7 @@ import {
   Bell,
   LogOut,
   ChevronUp,
+  AlertTriangle,
 } from "lucide-react";
 
 import {
@@ -52,6 +53,11 @@ const menuItems = [
     title: "Broadcast Alerts",
     url: "/notifications",
     icon: Bell,
+  },
+  {
+    title: "Disaster Monitor",
+    url: "/disaster",
+    icon: AlertTriangle,
   },
 ];
 

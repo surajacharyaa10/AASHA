@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useMemo, useEffect } from "react";
-import { Radio, Users, Clock, RefreshCw, Bell, AlertCircle } from "lucide-react";
+import { Radio, Users, Clock, RefreshCw, Bell, AlertCircle, Cloud } from "lucide-react";
 import { io } from "socket.io-client";
 import SosEventDetail, { SosEvent, SosStatus } from "@/app/components/SOSDetails";
 import { SosEventQueue } from "@/components/dashboard/SosEventQueue";
@@ -27,6 +27,7 @@ export default function Dashboard() {
   const [events, setEvents] = useState<SosEvent[]>([]);
   const [tab, setTab] = useState<SosStatus>("pending");
   const [selectedSosEvent, setSelectedSosEvent] = useState<SosEvent | null>(null);
+  const [weather, setWeather] = useState<any>(null);
 
   useEffect(() => {
     const fetchEvents = async () => {
@@ -37,6 +38,29 @@ export default function Dashboard() {
       } catch (err) { console.error("Failed to fetch events:", err); }
     };
     fetchEvents();
+
+    const fetchWeather = async (query = 'Kathmandu') => {
+      try {
+        const res = await fetch(`${BACKEND}/api/weather/current?query=${query}`);
+        const data = await res.json();
+        if (data.current) setWeather(data.current);
+      } catch (err) { console.error("Failed to fetch weather:", err); }
+    };
+
+    if ("geolocation" in navigator) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          const { latitude, longitude } = position.coords;
+          fetchWeather(`${latitude},${longitude}`);
+        },
+        (error) => {
+          console.error("Geolocation error, defaulting to Kathmandu", error);
+          fetchWeather();
+        }
+      );
+    } else {
+      fetchWeather();
+    }
 
     const socket = io(BACKEND);
     socket.on("sos:new", (apiEvent) => {
@@ -111,6 +135,12 @@ export default function Dashboard() {
           <div className="ml-4 flex items-center gap-1.5 text-xs text-slate-500">
             <span className="h-2 w-2 rounded-full bg-emerald-500" /> Network stable
           </div>
+          {weather && (
+            <div className="ml-4 flex items-center gap-1.5 text-xs text-slate-500 border-l border-slate-200 pl-4">
+              <Cloud className="h-3.5 w-3.5 text-slate-400" />
+              <span>{weather.temperature}°C, {weather.weather_descriptions?.[0]}</span>
+            </div>
+          )}
         </div>
         <div className="flex items-center gap-3">
           <button className="flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 shadow-2xs hover:bg-slate-50">

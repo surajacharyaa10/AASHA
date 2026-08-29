@@ -13,6 +13,11 @@ export interface SosPayload {
   hopCount?: number;
   reportedAt: string;
   note?: string;
+  name?: string;
+  address?: string;
+  email?: string;
+  phone?: string;
+  bloodGroup?: string;
 }
 
 export interface PacketLog {
@@ -36,11 +41,10 @@ const QUEUE_KEY = 'sosQueue';
  * `localhost` only works in iOS Simulator. Android Emulator uses `10.0.2.2`.
  * Replace the IP below with your Mac's LAN IP if testing on a physical device.
  */
-const BACKEND_URL = Platform.select({
-  ios:     'http://192.168.18.39:4000',
-  android: 'http://192.168.18.39:4000',
-  default: 'http://192.168.18.39:4000',
-});
+import BACKEND_URL from '@/lib/config';
+
+const BACKEND = BACKEND_URL;
+
 
 // ─── Module-level state ──────────────────────────────────────────────────────
 
@@ -101,7 +105,7 @@ export const flushQueue = async () => {
 
   for (const p of q) {
     try {
-      const response = await fetch(`${BACKEND_URL}/api/sos`, {
+      const response = await fetch(`${BACKEND}/api/sos`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(p),
@@ -187,12 +191,18 @@ export const sendSos = async (data: Partial<SosPayload>) => {
   const payload: SosPayload = {
     packetId,
     originDeviceId: 'f3a9c2e1b8d04a17',
-    latitude:  data.latitude  ?? 27.6869,
+    latitude: data.latitude ?? 27.6869,
     longitude: data.longitude ?? 86.7314,
-    battery:   data.battery   ?? 78,
+    battery: data.battery ?? 78,
     hopCount: 0,
     reportedAt: new Date().toISOString(),
     note: data.note ?? undefined,
+    // optional profile fields
+    name: (data as any).name,
+    address: (data as any).address,
+    email: (data as any).email,
+    phone: (data as any).phone,
+    bloodGroup: (data as any).bloodGroup,
   };
 
   // Reset state
@@ -229,7 +239,7 @@ export const sendSos = async (data: Partial<SosPayload>) => {
     notifyListeners(); // update UI immediately with mode
 
     try {
-      const res = await fetch(`${BACKEND_URL}/api/sos`, {
+      const res = await fetch(`${BACKEND}/api/sos`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
@@ -356,7 +366,7 @@ function _startBleSimulation(payload: SosPayload, shortId: string) {
       });
 
       try {
-        const res = await fetch(`${BACKEND_URL}/api/sos`, {
+        const res = await fetch(`${BACKEND}/api/sos`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(relayPayload),
