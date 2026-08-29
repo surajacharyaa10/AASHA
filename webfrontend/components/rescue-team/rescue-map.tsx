@@ -176,9 +176,9 @@ export function RescueMap({
             {activeSelected && (
               <Overlay
                 anchor={[activeSelected.lat, activeSelected.lng]}
-                offset={[140, 200]}
+                offset={[128, 240]}
               >
-                <div className="relative w-64 rounded-xl border border-slate-200 bg-white shadow-xl">
+                <div className="relative w-64 rounded-xl border border-slate-200 bg-white shadow-xl z-[9999]">
                   {/* Close button */}
                   <button 
                     onClick={(e) => {

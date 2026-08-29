@@ -2,7 +2,7 @@
 
 import React, { useRef } from "react";
 import { Radio, Layers, MapPin, ImageIcon, Upload, X, Send } from "lucide-react";
-import { NEPAL_REGIONS } from "@/app/notifications/page";
+import { NEPAL_REGIONS } from "@/app/(dashboard)/notifications/page";
 
 interface BroadcastComposerProps {
   title: string;

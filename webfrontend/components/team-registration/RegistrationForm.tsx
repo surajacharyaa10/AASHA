@@ -14,7 +14,7 @@ import {
   MapPin,
   Check,
 } from "lucide-react";
-import { NEPAL_REGIONS } from "@/app/notifications/page";
+import { NEPAL_REGIONS } from "@/app/(dashboard)/notifications/page";
 import type { TeamMemberInput } from "./types";
 import { RESCUE_CAPABILITIES } from "./types";
 
@@ -250,7 +250,7 @@ export function RegistrationForm(props: RegistrationFormProps) {
         </div>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-3">
           {RESCUE_CAPABILITIES.map((cap) => (
-            <label key={cap} className={`flex cursor-pointer items-center gap-3 rounded-xl border p-4 transition-all hover:bg-slate-50 ${props.selectedCapabilities.includes(cap) ? "border-red-600 bg-red-50/30" : "border-slate-200 bg-white"}`}>
+            <label key={cap} onClick={() => props.toggleCapability(cap)} className={`flex cursor-pointer items-center gap-3 rounded-xl border p-4 transition-all hover:bg-slate-50 ${props.selectedCapabilities.includes(cap) ? "border-red-600 bg-red-50/30" : "border-slate-200 bg-white"}`}>
               <div className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-md border ${props.selectedCapabilities.includes(cap) ? "border-red-600 bg-red-600" : "border-slate-300 bg-white"}`}>
                 {props.selectedCapabilities.includes(cap) && <Check className="h-3.5 w-3.5 text-white" strokeWidth={3} />}
               </div>
@@ -296,6 +296,58 @@ export function RegistrationForm(props: RegistrationFormProps) {
                   <label className="mb-1 block text-xs font-bold text-slate-700">Role / Speciality</label>
                   <input type="text" value={member.role} onChange={(e) => props.updateMember(member.id, "role", e.target.value)} className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm focus:border-red-500 focus:outline-none" required />
                 </div>
+                <div>
+                  <label className="mb-1 block text-xs font-bold text-slate-700">Citizenship Number</label>
+                  <input type="text" value={member.citizenshipNumber} onChange={(e) => props.updateMember(member.id, "citizenshipNumber", e.target.value)} className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm focus:border-red-500 focus:outline-none" required />
+                </div>
+              </div>
+
+              {/* Member Citizenship Upload */}
+              <div className="mt-4 border-t border-slate-200/50 pt-4">
+                {member.citizenshipDocUrl ? (
+                  <div className="flex items-center justify-between rounded-xl border border-emerald-200 bg-emerald-50 px-3.5 py-2">
+                    <span className="text-xs font-bold text-emerald-800">
+                      ✓ Citizenship Uploaded ({member.name || "Member"})
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => props.updateMember(member.id, "citizenshipDocUrl", "")}
+                      className="text-emerald-700 hover:text-red-600"
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
+                  </div>
+                ) : (
+                  <div className="relative">
+                    <input
+                      type="file"
+                      id={`member-file-${member.id}`}
+                      accept="image/*,application/pdf"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) {
+                          props.handleUploadDoc(
+                            file,
+                            (url) => props.updateMember(member.id, "citizenshipDocUrl", url),
+                            (loading) => props.updateMember(member.id, "uploadingDoc", loading)
+                          );
+                        }
+                      }}
+                      className="hidden"
+                    />
+                    <label
+                      htmlFor={`member-file-${member.id}`}
+                      className="flex cursor-pointer items-center justify-center gap-2 rounded-xl border border-dashed border-slate-300 bg-white p-2.5 text-center text-xs font-bold text-slate-700 hover:bg-slate-50"
+                    >
+                      <Upload className={`h-4 w-4 ${member.uploadingDoc ? "animate-bounce text-red-600" : "text-slate-400"}`} />
+                      <span>
+                        {member.uploadingDoc
+                          ? "Uploading to Cloudinary..."
+                          : "Upload Member Citizenship Copy"}
+                      </span>
+                    </label>
+                  </div>
+                )}
               </div>
             </div>
           ))}

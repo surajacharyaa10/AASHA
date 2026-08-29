@@ -289,13 +289,13 @@ export default function RescueTeamRoster() {
                     </div>
                   </div>
                   <div className="h-full min-h-[400px] w-full overflow-hidden rounded-xl bg-slate-100 relative">
-                    <RescueMap teams={teams} onSelectTeam={setSelectedTeam} />
+                    <RescueMap teams={teams} selectedTeam={selectedTeam} onSelectTeam={setSelectedTeam} />
                   </div>
                 </div>
               </div>
             ) : (
               <div className="flex h-[700px] w-full flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xs">
-                <RescueMap teams={teams} onSelectTeam={setSelectedTeam} />
+                <RescueMap teams={teams} selectedTeam={selectedTeam} onSelectTeam={setSelectedTeam} />
               </div>
             )}
           </>

@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { Shield, UserPlus, FileText, CheckCircle2, AlertCircle } from "lucide-react";
-import { NEPAL_REGIONS } from "@/app/notifications/page";
+import { NEPAL_REGIONS } from "@/app/(dashboard)/notifications/page";
 import type { TeamMemberInput, RegistrationRecord } from "@/components/team-registration/types";
 import { BACKEND_URL } from "@/components/team-registration/types";
 import { RegistrationForm } from "@/components/team-registration/RegistrationForm";
