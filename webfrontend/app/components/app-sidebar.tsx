@@ -8,7 +8,9 @@ import { usePathname } from "next/navigation";
 import {
   LayoutDashboard,
   Users,
+  UserPlus,
   ChartNoAxesCombined,
+  Bell,
   Settings,
   LogOut,
   ChevronUp,
@@ -39,9 +41,19 @@ const menuItems = [
     icon: Users,
   },
   {
+    title: "Team Registration",
+    url: "/team-registration",
+    icon: UserPlus,
+  },
+  {
     title: "Analytics",
     url: "/analytics",
     icon: ChartNoAxesCombined,
+  },
+  {
+    title: "Broadcast Alerts",
+    url: "/notifications",
+    icon: Bell,
   },
 ];
 

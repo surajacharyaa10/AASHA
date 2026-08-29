@@ -25,6 +25,15 @@ import {
   formatAltitude,
   DeviceLocation,
 } from '@/lib/locationService';
+import {
+  fetchEmergencyNotifications,
+  subscribeToNotifications,
+  subscribeToIncomingAlerts,
+  initRealtimeNotifications,
+  MobileNotification,
+} from '@/lib/notificationService';
+import { NotificationModal } from '@/components/sos/notification-modal';
+import { EmergencyHeadsUpBanner } from '@/components/sos/emergency-heads-up-banner';
 
 /**
  * AASHA SOS — Main Emergency Screen
@@ -59,6 +68,10 @@ export default function HomeScreen() {
     uploadedByHop: null as number | null,
   });
 
+  const [notifications, setNotifications] = useState<MobileNotification[]>([]);
+  const [showNotifModal, setShowNotifModal] = useState(false);
+  const [incomingAlert, setIncomingAlert] = useState<MobileNotification | null>(null);
+
   useEffect(() => {
     // Start GPS — requests permission on first call
     initLocation();
@@ -88,10 +101,24 @@ export default function HomeScreen() {
       setBatteryLevel(Math.round(batteryLevel * 100));
     });
 
+    // Emergency notifications subscription, sound channel setup & real-time socket listener
+    const unsubNotif = subscribeToNotifications((notifs) => {
+      setNotifications(notifs);
+    });
+
+    const unsubIncoming = subscribeToIncomingAlerts((alert) => {
+      setIncomingAlert(alert);
+    });
+
+    fetchEmergencyNotifications();
+    initRealtimeNotifications();
+
     return () => {
       unsubLoc();
       unsubMesh();
       batterySub.remove();
+      unsubNotif();
+      unsubIncoming();
     };
   }, []);
 
@@ -159,20 +186,14 @@ export default function HomeScreen() {
 
               {/* Notification Button */}
               <Pressable
-                onPress={() => {
-                  Alert.alert(
-                    'Emergency Notifications',
-                    '• Mesh Network: Active & Listening\n• Sector Status: Normal\n• No active hazard warnings in your area.',
-                    [{ text: 'Dismiss', style: 'default' }]
-                  );
-                }}
+                onPress={() => setShowNotifModal(true)}
                 style={({ pressed }) => [
                   styles.notificationBtn,
-                  pressed && { opacity: 0.7, backgroundColor: '#E2E8F0' }
+                  pressed && { opacity: 0.7, backgroundColor: '#E2E8F0' },
                 ]}
               >
                 <Icon name="bell" size={16} color="#334155" />
-                <View style={styles.notifDot} />
+                {notifications.length > 0 && <View style={styles.notifDot} />}
               </Pressable>
             </View>
           </View>
@@ -306,6 +327,24 @@ export default function HomeScreen() {
           )}
         </View>
       </ScrollView>
+
+      {/* AwesomeNotification / YouTube style in-app Heads-up Alert Banner */}
+      <EmergencyHeadsUpBanner
+        notification={incomingAlert}
+        onPress={() => {
+          setIncomingAlert(null);
+          setShowNotifModal(true);
+        }}
+        onDismiss={() => setIncomingAlert(null)}
+      />
+
+      {/* Emergency Notifications Modal */}
+      <NotificationModal
+        visible={showNotifModal}
+        onClose={() => setShowNotifModal(false)}
+        notifications={notifications}
+        currentLocationName={location.placeName}
+      />
     </SafeAreaView>
   );
 }

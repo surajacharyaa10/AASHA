@@ -261,6 +261,24 @@ const resolveEvent = async (req: Request<{ id: string }, {}, ResolveEventInput>,
 
     const resultEvent = ('value' in updatedEvent && updatedEvent.value) ? updatedEvent.value : updatedEvent;
 
+    // If event was assigned to a team, update the team's status back to available
+    if (resultEvent && resultEvent.assignedTeamId) {
+      try {
+        await db.collection('rescue_team_registrations').updateOne(
+          { _id: new ObjectId(resultEvent.assignedTeamId) },
+          {
+            $set: {
+              availability: 'available',
+              assignment: null,
+              updatedAt: new Date(),
+            },
+          }
+        );
+      } catch (err) {
+        console.error('Failed to update team availability on resolve:', err);
+      }
+    }
+
     // Emit event socket update
     const io = (req.app as any).get('io');
     if (io) {

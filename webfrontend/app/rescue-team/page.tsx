@@ -1,131 +1,88 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect, useCallback } from "react";
 import Link from "next/link";
-import {
-  ArrowLeft,
-  Download,
-  Plus,
-  List,
-  Map as MapIcon,
-  CheckCircle2,
-  Users,
-  Clock,
-  Search,
-  SlidersHorizontal,
-  ChevronDown,
-  Maximize2,
-  Phone,
-  Shield,
-  MapPin,
-  Filter,
-} from "lucide-react";
+import { ArrowLeft, Download, List, Map as MapIcon, Users, RefreshCw, UserPlus } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
-import { Card, CardContent } from "@/components/ui/card";
-import {
-  RescueMap,
-  RescueTeam,
-  Availability,
-} from "@/components/rescue-team/rescue-map";
-import { AddTeamSheet } from "@/components/rescue-team/add-team-sheet";
+import { RescueMap, RescueTeam, Availability } from "@/components/rescue-team/rescue-map";
 import { TeamDetailSheet } from "@/components/rescue-team/team-detail-sheet";
+import { TeamMetrics } from "@/components/rescue-team/TeamMetrics";
+import { TeamFilterBar } from "@/components/rescue-team/TeamFilterBar";
+import { TeamTable } from "@/components/rescue-team/TeamTable";
 
-const INITIAL_TEAMS: RescueTeam[] = [
-  {
-    id: "echo",
-    name: "Team Echo",
-    initial: "E",
-    capability: "Rope rescue · Trauma care",
-    station: "Lukla",
-    district: "Solukhumbu",
-    lead: "Pemba Sherpa",
-    phone: "+977 9841234567",
-    membersCount: 6,
-    availability: "available",
-    assignment: null,
-    readiness: 100,
-    lat: 27.6869,
-    lng: 86.7314,
-  },
-  {
-    id: "himal",
-    name: "Team Himal",
-    initial: "H",
-    capability: "High altitude · Medical",
-    station: "Namche Bazaar",
-    district: "Solukhumbu",
-    lead: "Ang Tshering",
-    phone: "+977 9851098765",
-    membersCount: 8,
-    availability: "deployed",
-    assignment: "SOS-NEP-0840",
-    readiness: 82,
-    lat: 27.8069,
-    lng: 86.7139,
-  },
-  {
-    id: "sagarmatha",
-    name: "Team Sagarmatha",
-    initial: "S",
-    capability: "Evacuation · Search",
-    station: "Phaplu",
-    district: "Solukhumbu",
-    lead: "Dawa Norbu",
-    phone: "+977 9801239876",
-    membersCount: 6,
-    availability: "available",
-    assignment: null,
-    readiness: 94,
-    lat: 27.5186,
-    lng: 86.5878,
-  },
-  {
-    id: "kosi",
-    name: "Team Kosi",
-    initial: "K",
-    capability: "Swift water · Logistics",
-    station: "Salleri",
-    district: "Solukhumbu",
-    lead: "Karma Sherpa",
-    phone: "+977 9812345678",
-    membersCount: 5,
-    availability: "off-duty",
-    assignment: "Shift handover",
-    readiness: null,
-    lat: 27.502,
-    lng: 86.591,
-  },
-  {
-    id: "annapurna",
-    name: "Team Annapurna",
-    initial: "A",
-    capability: "Avalanche search · Heli-evac",
-    station: "Pheriche",
-    district: "Solukhumbu",
-    lead: "Lhakpa Rita",
-    phone: "+977 9860123456",
-    membersCount: 7,
-    availability: "deployed",
-    assignment: "SOS-NEP-0842",
-    readiness: 90,
-    lat: 27.8942,
-    lng: 86.8219,
-  },
-];
+const BACKEND_URL = "http://localhost:4000";
+
+const PROVINCE_COORDS: Record<string, { lat: number; lng: number }> = {
+  "Koshi Province":     { lat: 27.34, lng: 87.27 },
+  "Madhesh Province":   { lat: 26.75, lng: 85.92 },
+  "Bagmati Province":   { lat: 27.71, lng: 85.33 },
+  "Gandaki Province":   { lat: 28.26, lng: 83.96 },
+  "Lumbini Province":   { lat: 27.83, lng: 82.79 },
+  "Karnali Province":   { lat: 29.18, lng: 82.17 },
+  "Sudurpashchim Province": { lat: 29.30, lng: 80.55 },
+};
+
+function mapRegistrationToTeam(reg: any, idx: number): RescueTeam {
+  const coords = PROVINCE_COORDS[reg.province] || { lat: 27.75, lng: 86.65 };
+  const latOffset = (idx % 5) * 0.04 - 0.08;
+  const lngOffset = (Math.floor(idx / 5) % 5) * 0.05 - 0.10;
+
+  return {
+    id: reg.id || reg._id,
+    name: reg.teamName,
+    initial: (reg.teamName || "T").charAt(0).toUpperCase(),
+    capability: Array.isArray(reg.capabilities) ? reg.capabilities.join(" · ") : "General Rescue",
+    station: reg.station,
+    district: reg.district,
+    province: reg.province,
+    lead: reg.leadName,
+    phone: reg.leadPhone,
+    leadEmail: reg.leadEmail,
+    leadCitizenshipNumber: reg.leadCitizenshipNumber,
+    leadCitizenshipDocUrl: reg.leadCitizenshipDocUrl,
+    teamLetterDocUrl: reg.teamLetterDocUrl,
+    membersCount: reg.membersCount || (reg.members?.length || 0) + 1,
+    members: reg.members || [],
+    capabilities: reg.capabilities || [],
+    availability: reg.availability || "available",
+    assignment: reg.assignment || null,
+    readiness: reg.readiness !== undefined ? reg.readiness : 100,
+    lat: coords.lat + latOffset,
+    lng: coords.lng + lngOffset,
+    registrationId: reg.id,
+  };
+}
 
 export default function RescueTeamRoster() {
-  const [teams, setTeams] = useState<RescueTeam[]>(INITIAL_TEAMS);
+  const [teams, setTeams] = useState<RescueTeam[]>([]);
+  const [loading, setLoading] = useState(true);
   const [view, setView] = useState<"list" | "map">("list");
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<"all" | Availability>("all");
   const [selectedDistrict, setSelectedDistrict] = useState<string>("all");
 
   const [selectedTeam, setSelectedTeam] = useState<RescueTeam | null>(null);
-  const [isAddTeamOpen, setIsAddTeamOpen] = useState(false);
   const [isDetailOpen, setIsDetailOpen] = useState(false);
+
+  const fetchTeams = useCallback(async () => {
+    try {
+      setLoading(true);
+      const res = await fetch(`${BACKEND_URL}/api/team-registrations?status=approved`);
+      const data = await res.json();
+      if (data?.registrations) {
+        setTeams(data.registrations.map(mapRegistrationToTeam));
+      }
+    } catch (err) {
+      console.error("Failed to load rescue teams:", err);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchTeams();
+  }, [fetchTeams]);
 
   const availableCount = teams.filter((t) => t.availability === "available").length;
   const deployedCount = teams.filter((t) => t.availability === "deployed").length;
@@ -143,21 +100,11 @@ export default function RescueTeamRoster() {
         t.station.toLowerCase().includes(query.toLowerCase()) ||
         t.capability.toLowerCase().includes(query.toLowerCase()) ||
         t.lead.toLowerCase().includes(query.toLowerCase());
-
-      const matchesStatus =
-        statusFilter === "all" || t.availability === statusFilter;
-
-      const matchesDistrict =
-        selectedDistrict === "all" || t.district === selectedDistrict;
-
+      const matchesStatus = statusFilter === "all" || t.availability === statusFilter;
+      const matchesDistrict = selectedDistrict === "all" || t.district === selectedDistrict;
       return matchesQuery && matchesStatus && matchesDistrict;
     });
   }, [teams, query, statusFilter, selectedDistrict]);
-
-  const handleAddTeam = (newTeam: RescueTeam) => {
-    setTeams((prev) => [newTeam, ...prev]);
-    setSelectedTeam(newTeam);
-  };
 
   const handleUpdateStatus = (teamId: string, status: Availability) => {
     setTeams((prev) =>
@@ -174,21 +121,18 @@ export default function RescueTeamRoster() {
       })
     );
     if (selectedTeam && selectedTeam.id === teamId) {
-      setSelectedTeam((prev) =>
-        prev
-          ? {
-              ...prev,
-              availability: status,
-              assignment: status === "deployed" ? "SOS-NEP-ASSIGNED" : null,
-              readiness: status === "off-duty" ? null : prev.readiness ?? 90,
-            }
-          : null
-      );
+      setSelectedTeam((prev) => prev ? {
+        ...prev,
+        availability: status,
+        assignment: status === "deployed" ? "SOS-NEP-ASSIGNED" : null,
+        readiness: status === "off-duty" ? null : prev.readiness ?? 90,
+      } : null);
     }
   };
 
   const handleRowClick = (team: RescueTeam) => {
     setSelectedTeam(team);
+    setIsDetailOpen(true);
   };
 
   const handleOpenDetails = (team: RescueTeam, e?: React.MouseEvent) => {
@@ -197,22 +141,74 @@ export default function RescueTeamRoster() {
     setIsDetailOpen(true);
   };
 
-  const handleExportBrief = () => {
-    const csvContent =
-      "data:text/csv;charset=utf-8," +
-      ["ID,Name,Station,District,Status,Readiness,Lead,Phone,Assignment"]
-        .concat(
-          teams.map(
-            (t) =>
-              `"${t.id}","${t.name}","${t.station}","${t.district}","${t.availability}","${t.readiness ?? "--"}","${t.lead}","${t.phone}","${t.assignment ?? "None"}"`
-          )
-        )
-        .join("\n");
+  const csvCell = (v: any) => `"${String(v ?? "").replace(/"/g, '""')}"`;
 
-    const encodedUri = encodeURI(csvContent);
+  const handleExportTeam = (team: RescueTeam, e: React.MouseEvent) => {
+    e.stopPropagation();
+    const now = new Date().toLocaleString("en-NP", { timeZone: "Asia/Kathmandu" });
+    const c = csvCell;
+    const rows: string[] = [];
+
+    rows.push(c("AASHA RESCUE SYSTEM — RESCUE TEAM DOSSIER SPREADSHEET"));
+    rows.push(`${c("Generated")},${c(now + " NPT")}`);
+    rows.push("");
+    rows.push(c("=== SECTION 1: TEAM IDENTITY ==="));
+    rows.push(`${c("Field")},${c("Value")}`);
+    rows.push(`${c("Team Name")},${c(team.name)}`);
+    rows.push(`${c("Base Station")},${c(team.station)}`);
+    rows.push(`${c("District")},${c(team.district)}`);
+    rows.push(`${c("Province")},${c(team.province || "—")}`);
+    rows.push(`${c("Operational Status")},${c(team.availability.toUpperCase())}`);
+    rows.push(`${c("Readiness %")},${c(team.readiness !== null ? team.readiness + "%" : "—")}`);
+    rows.push(`${c("Total Members (incl. Leader)")},${c(team.membersCount)}`);
+    rows.push(`${c("Current Assignment")},${c(team.assignment || "None")}`);
+    rows.push("");
+    rows.push(c("=== SECTION 2: TEAM COMMANDER ==="));
+    rows.push(`${c("Field")},${c("Value")}`);
+    rows.push(`${c("Leader Name")},${c(team.lead)}`);
+    rows.push(`${c("Email / Gmail")},${c(team.leadEmail || "—")}`);
+    rows.push(`${c("Phone")},${c(team.phone)}`);
+    rows.push(`${c("Citizenship Number")},${c(team.leadCitizenshipNumber || "—")}`);
+    rows.push(`${c("Citizenship Doc URL")},${c(team.leadCitizenshipDocUrl || "Not uploaded")}`);
+    rows.push(`${c("Official Team Letter URL")},${c(team.teamLetterDocUrl || "Not uploaded")}`);
+    rows.push("");
+    const caps = team.capabilities && team.capabilities.length > 0 ? team.capabilities : team.capability.split(" · ").filter(Boolean);
+    rows.push(c("=== SECTION 3: SPECIALIZED CAPABILITIES ==="));
+    rows.push(`${c("#")},${c("Capability")}`);
+    caps.forEach((cap, i) => rows.push(`${c(i + 1)},${c(cap)}`));
+    rows.push("");
+    const members = team.members || [];
+    rows.push(c("=== SECTION 4: TEAM MEMBERS ROSTER ==="));
+    rows.push([c("#"), c("Full Name"), c("Role"), c("Email / Gmail"), c("Phone Number"), c("Citizenship Number"), c("Citizenship Doc URL"), c("Type")].join(","));
+    rows.push([c(1), c(team.lead), c("Team Leader / Commander"), c(team.leadEmail || "—"), c(team.phone), c(team.leadCitizenshipNumber || "—"), c(team.leadCitizenshipDocUrl || "Not uploaded"), c("LEADER")].join(","));
+    members.forEach((m, i) => {
+      rows.push([c(i + 2), c(m.name || `Member ${i + 1}`), c(m.role || "Field Responder"), c(m.email || "—"), c(m.phone || "—"), c(m.citizenshipNumber || "—"), c(m.citizenshipDocUrl || "Not uploaded"), c("MEMBER")].join(","));
+    });
+    rows.push("");
+    rows.push(c("Aasha Emergency Response System · Government of Nepal · Confidential"));
+
+    const csvContent = "\uFEFF" + rows.join("\r\n");
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${team.name.replace(/\s+/g, "-")}-dossier.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
+  const handleExportBrief = () => {
+    const now = new Date().toISOString().split("T")[0];
+    const rows = [
+      ["ID", "Team Name", "Province", "District", "Base Station", "Leader", "Leader Email", "Phone", "Members", "Capabilities", "Status", "Assignment", "Readiness %"],
+      ...teams.map((t) => [t.id, t.name, t.province || "", t.district, t.station, t.lead, t.leadEmail || "", t.phone, String(t.membersCount), (t.capabilities || [t.capability]).join("; "), t.availability, t.assignment || "None", String(t.readiness ?? "--")]),
+    ];
+    const csvContent = "data:text/csv;charset=utf-8," + rows.map((r) => r.map((v) => `"${v}"`).join(",")).join("\n");
     const link = document.createElement("a");
-    link.setAttribute("href", encodedUri);
-    link.setAttribute("download", `aasha-rescue-roster-${Date.now()}.csv`);
+    link.setAttribute("href", encodeURI(csvContent));
+    link.setAttribute("download", `aasha-rescue-roster-${now}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -220,15 +216,9 @@ export default function RescueTeamRoster() {
 
   return (
     <div className="min-h-screen bg-slate-50 font-sans text-slate-900">
-      {/* ── Header ─────────────────────────────────────────── */}
       <header className="flex items-center justify-between border-b border-slate-200 bg-white px-6 py-4 shadow-2xs">
         <div className="flex items-center gap-4">
-          <Button
-            variant="outline"
-            size="icon"
-            render={<Link href="/dashboard" />}
-            className="h-9 w-9 border-slate-200"
-          >
+          <Button variant="outline" size="icon" render={<Link href="/dashboard" />} className="h-9 w-9 border-slate-200">
             <ArrowLeft className="h-4 w-4 text-slate-600" />
           </Button>
           <div>
@@ -236,386 +226,82 @@ export default function RescueTeamRoster() {
             <h1 className="text-lg font-bold text-slate-900">Rescue Team Roster</h1>
           </div>
         </div>
-
         <div className="flex items-center gap-3">
-          <Button
-            variant="outline"
-            onClick={handleExportBrief}
-            className="gap-2 border-slate-200 font-medium text-slate-700 hover:bg-slate-50"
-          >
-            <Download className="h-4 w-4" />
-            Export Shift Brief
+          <Button variant="outline" onClick={fetchTeams} className="gap-2 border-slate-200 font-medium text-slate-700 hover:bg-slate-50">
+            <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin text-red-600" : ""}`} /> Refresh
           </Button>
-          <Button
-            onClick={() => setIsAddTeamOpen(true)}
-            className="gap-2 bg-red-600 font-medium text-white hover:bg-red-700 shadow-xs"
-          >
-            <Plus className="h-4 w-4" />
-            Add Team
+          <Button variant="outline" onClick={handleExportBrief} className="gap-2 border-slate-200 font-medium text-slate-700 hover:bg-slate-50">
+            <Download className="h-4 w-4" /> Export Shift Brief
+          </Button>
+          <Button render={<Link href="/team-registration" />} className="gap-2 bg-red-600 font-medium text-white hover:bg-red-700 shadow-xs">
+            <UserPlus className="h-4 w-4" /> Register Team
           </Button>
         </div>
       </header>
 
       <main className="px-6 py-6">
-        {/* ── Title row & View Toggles ──────────────────────── */}
         <div className="mb-5 flex flex-wrap items-end justify-between gap-4">
           <div>
             <h2 className="text-2xl font-bold text-slate-900">Field Readiness at a Glance</h2>
-            <p className="mt-1 text-sm text-slate-500">
-              Monitor availability, deployment load, and live coordinates across active sectors.
-            </p>
+            <p className="mt-1 text-sm text-slate-500">Monitor availability, deployment load, and live coordinates across active sectors.</p>
           </div>
-
           <div className="flex rounded-xl border border-slate-200 bg-white p-1 shadow-xs">
-            <button
-              onClick={() => setView("list")}
-              className={`flex items-center gap-1.5 rounded-lg px-3.5 py-1.5 text-sm font-semibold transition-all ${
-                view === "list"
-                  ? "bg-slate-900 text-white shadow-xs"
-                  : "text-slate-600 hover:bg-slate-100"
-              }`}
-            >
-              <List className="h-4 w-4" />
-              List View
+            <button onClick={() => setView("list")} className={`flex items-center gap-1.5 rounded-lg px-3.5 py-1.5 text-sm font-semibold transition-all ${view === "list" ? "bg-slate-900 text-white shadow-xs" : "text-slate-600 hover:bg-slate-100"}`}>
+              <List className="h-4 w-4" /> List View
             </button>
-            <button
-              onClick={() => setView("map")}
-              className={`flex items-center gap-1.5 rounded-lg px-3.5 py-1.5 text-sm font-semibold transition-all ${
-                view === "map"
-                  ? "bg-slate-900 text-white shadow-xs"
-                  : "text-slate-600 hover:bg-slate-100"
-              }`}
-            >
-              <MapIcon className="h-4 w-4" />
-              Full Map View
+            <button onClick={() => setView("map")} className={`flex items-center gap-1.5 rounded-lg px-3.5 py-1.5 text-sm font-semibold transition-all ${view === "map" ? "bg-slate-900 text-white shadow-xs" : "text-slate-600 hover:bg-slate-100"}`}>
+              <MapIcon className="h-4 w-4" /> Full Map View
             </button>
           </div>
         </div>
 
-        {/* ── Stat Cards ─────────────────────────────────────── */}
-        <div className="mb-6 grid grid-cols-1 gap-4 md:grid-cols-3">
-          <Card className="border-slate-200 bg-white p-5 shadow-xs">
-            <CardContent className="p-0">
-              <div className="mb-4 flex items-center justify-between">
-                <p className="text-sm font-medium text-slate-500">Available Now</p>
-                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-50 text-emerald-600">
-                  <CheckCircle2 className="h-4 w-4" />
-                </div>
-              </div>
-              <p className="text-3xl font-bold text-slate-900">
-                {String(availableCount).padStart(2, "0")}
-              </p>
-              <p className="mt-1 text-xs font-semibold text-emerald-600">
-                Ready for immediate dispatch
-              </p>
-            </CardContent>
-          </Card>
+        <TeamMetrics totalCount={teams.length} availableCount={availableCount} deployedCount={deployedCount} offDutyCount={offDutyCount} />
+        <TeamFilterBar query={query} setQuery={setQuery} statusFilter={statusFilter} setStatusFilter={setStatusFilter} selectedDistrict={selectedDistrict} setSelectedDistrict={setSelectedDistrict} districts={districts} />
 
-          <Card className="border-slate-200 bg-white p-5 shadow-xs">
-            <CardContent className="p-0">
-              <div className="mb-4 flex items-center justify-between">
-                <p className="text-sm font-medium text-slate-500">Currently Deployed</p>
-                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-50 text-blue-600">
-                  <Users className="h-4 w-4" />
-                </div>
-              </div>
-              <p className="text-3xl font-bold text-slate-900">
-                {String(deployedCount).padStart(2, "0")}
-              </p>
-              <p className="mt-1 text-xs text-slate-500">
-                Active in field operations
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card className="border-slate-200 bg-white p-5 shadow-xs">
-            <CardContent className="p-0">
-              <div className="mb-4 flex items-center justify-between">
-                <p className="text-sm font-medium text-slate-500">Off Duty / Rest</p>
-                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-slate-100 text-slate-500">
-                  <Clock className="h-4 w-4" />
-                </div>
-              </div>
-              <p className="text-3xl font-bold text-slate-900">
-                {String(offDutyCount).padStart(2, "0")}
-              </p>
-              <p className="mt-1 text-xs text-slate-500">
-                Next shift rotation at 17:00 NPT
-              </p>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* ── Search & Filter Controls ──────────────────────── */}
-        <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white p-3 shadow-xs">
-          <div className="flex flex-1 min-w-[240px] items-center gap-2 rounded-xl border border-slate-200 px-3 py-1.5">
-            <Search className="h-4 w-4 text-slate-400 shrink-0" />
-            <input
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="Search team, station, capability, or lead..."
-              className="w-full bg-transparent text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none"
-            />
-          </div>
-
-          <div className="flex flex-wrap items-center gap-2">
-            <div className="flex rounded-xl border border-slate-200 bg-slate-50 p-1">
-              {(["all", "available", "deployed", "off-duty"] as const).map((s) => (
-                <button
-                  key={s}
-                  onClick={() => setStatusFilter(s)}
-                  className={`rounded-lg px-3 py-1 text-xs font-semibold capitalize transition-all ${
-                    statusFilter === s
-                      ? "bg-white text-slate-900 shadow-xs"
-                      : "text-slate-600 hover:text-slate-900"
-                  }`}
-                >
-                  {s}
-                </button>
-              ))}
-            </div>
-
-            <select
-              value={selectedDistrict}
-              onChange={(e) => setSelectedDistrict(e.target.value)}
-              className="h-8 rounded-xl border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700 outline-none"
-            >
-              <option value="all">All Districts</option>
-              {districts.map((d) => (
-                <option key={d} value={d}>
-                  {d}
-                </option>
-              ))}
-            </select>
-          </div>
-        </div>
-
-        {/* ── Main Content: List View vs Full Map View ──────── */}
-        {view === "list" ? (
-          <div className="grid grid-cols-1 gap-5 lg:grid-cols-[1fr_360px]">
-            {/* Table Card */}
-            <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xs">
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-sm">
-                  <thead>
-                    <tr className="border-b border-slate-100 bg-slate-50/50 text-[11px] font-bold uppercase tracking-wider text-slate-400">
-                      <th className="px-5 py-3.5">Rescue Team</th>
-                      <th className="px-4 py-3.5">Base Station</th>
-                      <th className="px-4 py-3.5">Status</th>
-                      <th className="px-4 py-3.5">Assignment</th>
-                      <th className="px-4 py-3.5">Readiness</th>
-                      <th className="px-4 py-3.5 text-right">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100">
-                    {filteredTeams.map((team) => {
-                      const isSelected = selectedTeam?.id === team.id;
-                      return (
-                        <tr
-                          key={team.id}
-                          onClick={() => handleRowClick(team)}
-                          className={`cursor-pointer transition-colors ${
-                            isSelected
-                              ? "bg-slate-50/90 font-medium"
-                              : "hover:bg-slate-50/60"
-                          }`}
-                        >
-                          <td className="px-5 py-4">
-                            <div className="flex items-center gap-3">
-                              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-slate-900 text-sm font-bold text-white shadow-xs">
-                                {team.initial}
-                              </div>
-                              <div className="min-w-0">
-                                <p className="font-bold text-slate-900">{team.name}</p>
-                                <p className="text-xs text-slate-500 truncate max-w-[200px]">
-                                  {team.capability}
-                                </p>
-                              </div>
-                            </div>
-                          </td>
-
-                          <td className="px-4 py-4">
-                            <div className="flex items-center gap-1.5 text-slate-700">
-                              <MapPin className="h-3.5 w-3.5 text-slate-400 shrink-0" />
-                              <span>{team.station}</span>
-                            </div>
-                            <span className="text-[11px] text-slate-400 pl-5">
-                              {team.district}
-                            </span>
-                          </td>
-
-                          <td className="px-4 py-4">
-                            <Badge
-                              variant={
-                                team.availability === "available"
-                                  ? "success"
-                                  : team.availability === "deployed"
-                                  ? "info"
-                                  : "secondary"
-                              }
-                              className="capitalize font-semibold"
-                            >
-                              {team.availability}
-                            </Badge>
-                          </td>
-
-                          <td className="px-4 py-4">
-                            {team.assignment ? (
-                              <span className="font-semibold text-blue-600">
-                                {team.assignment}
-                              </span>
-                            ) : (
-                              <span className="text-slate-400">Unassigned</span>
-                            )}
-                          </td>
-
-                          <td className="px-4 py-4">
-                            {team.readiness !== null ? (
-                              <div className="flex items-center gap-2">
-                                <span
-                                  className={`rounded-full px-2.5 py-0.5 text-xs font-bold ${
-                                    team.readiness >= 90
-                                      ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
-                                      : team.readiness >= 70
-                                      ? "bg-amber-50 text-amber-700 border border-amber-200"
-                                      : "bg-red-50 text-red-700 border border-red-200"
-                                  }`}
-                                >
-                                  {team.readiness}%
-                                </span>
-                              </div>
-                            ) : (
-                              <span className="text-slate-400">--</span>
-                            )}
-                          </td>
-
-                          <td className="px-4 py-4 text-right">
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={(e) => handleOpenDetails(team, e)}
-                              className="h-8 text-xs font-semibold text-slate-700 hover:bg-slate-100"
-                            >
-                              Details
-                            </Button>
-                          </td>
-                        </tr>
-                      );
-                    })}
-
-                    {filteredTeams.length === 0 && (
-                      <tr>
-                        <td colSpan={6} className="px-5 py-12 text-center text-sm text-slate-400">
-                          No rescue teams match the selected filters.
-                        </td>
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-
-            {/* Side Coverage Map Card */}
-            <div className="flex flex-col gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-xs">
-              <div className="flex items-start justify-between">
-                <div>
-                  <h3 className="text-base font-bold text-slate-900">Live Coverage Map</h3>
-                  <p className="text-xs text-slate-500">
-                    {teams.length} teams positioned in Sector 1
-                  </p>
-                </div>
-                <Button
-                  variant="outline"
-                  size="icon"
-                  onClick={() => setView("map")}
-                  title="Expand to Full Map"
-                  className="h-8 w-8 text-slate-600"
-                >
-                  <Maximize2 className="h-4 w-4" />
-                </Button>
-              </div>
-
-              {/* Working Interactive Map Component */}
-              <div className="h-80 w-full overflow-hidden rounded-xl">
-                <RescueMap
-                  teams={filteredTeams}
-                  selectedTeam={selectedTeam}
-                  onSelectTeam={setSelectedTeam}
-                  onToggleExpand={() => setView("map")}
-                  showControls={false}
-                  className="h-full w-full"
-                />
-              </div>
-
-              {/* Selected Team Quick Overview */}
-              {selectedTeam && (
-                <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs">
-                  <div className="flex items-center justify-between font-semibold">
-                    <span className="text-slate-900">{selectedTeam.name}</span>
-                    <Badge
-                      variant={
-                        selectedTeam.availability === "available"
-                          ? "success"
-                          : selectedTeam.availability === "deployed"
-                          ? "info"
-                          : "secondary"
-                      }
-                      className="text-[10px]"
-                    >
-                      {selectedTeam.availability}
-                    </Badge>
-                  </div>
-                  <p className="mt-1 text-slate-500">
-                    Base: {selectedTeam.station} · Lead: {selectedTeam.lead}
-                  </p>
-                  <div className="mt-2.5 flex items-center gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setIsDetailOpen(true)}
-                      className="h-7 flex-1 text-[11px]"
-                    >
-                      View Team Dossier
-                    </Button>
-                    <a
-                      href={`tel:${selectedTeam.phone}`}
-                      className="inline-flex h-7 items-center justify-center rounded-lg bg-slate-900 px-3 text-[11px] font-semibold text-white hover:bg-slate-800"
-                    >
-                      <Phone className="h-3 w-3 mr-1" /> Call
-                    </a>
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-        ) : (
-          /* Full Map View */
-          <div className="relative h-[calc(100vh-280px)] min-h-[500px] w-full overflow-hidden rounded-2xl border border-slate-200 shadow-xs">
-            <RescueMap
-              teams={filteredTeams}
-              selectedTeam={selectedTeam}
-              onSelectTeam={setSelectedTeam}
-              isExpanded={true}
-              onToggleExpand={() => setView("list")}
-              className="h-full w-full"
-            />
+        {loading && (
+          <div className="flex h-64 items-center justify-center rounded-2xl border border-slate-200 bg-white">
+            <RefreshCw className="h-6 w-6 animate-spin text-red-600" />
+            <span className="ml-3 text-sm font-semibold text-slate-600">Loading approved rescue teams…</span>
           </div>
         )}
+
+        {!loading && teams.length === 0 && (
+          <div className="flex flex-col items-center justify-center rounded-3xl border border-dashed border-slate-200 bg-white p-14 text-center">
+            <Users className="mb-3 h-10 w-10 text-slate-300" />
+            <h3 className="text-base font-bold text-slate-700">No Active Rescue Teams</h3>
+            <p className="mt-1 max-w-sm text-xs text-slate-400">Rescue teams appear here once they have been approved via Team Registration.</p>
+            <Link href="/team-registration" className="mt-5 inline-flex items-center gap-2 rounded-xl bg-red-600 px-5 py-2.5 text-xs font-bold text-white hover:bg-red-700 shadow-sm">
+              <UserPlus className="h-4 w-4" /> Register a Rescue Team
+            </Link>
+          </div>
+        )}
+
+        {!loading && teams.length > 0 && (
+          <>
+            {view === "list" ? (
+              <div className="grid grid-cols-1 gap-5 lg:grid-cols-[1fr_360px]">
+                <TeamTable teams={filteredTeams} selectedTeam={selectedTeam} onRowClick={handleRowClick} onOpenDetails={handleOpenDetails} onExportTeam={handleExportTeam} />
+                <div className="flex flex-col gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-xs">
+                  <div className="flex items-start justify-between">
+                    <div>
+                      <h3 className="text-base font-bold text-slate-900">Live Coverage Map</h3>
+                      <p className="text-xs text-slate-500">{teams.length} teams positioned across Nepal</p>
+                    </div>
+                  </div>
+                  <div className="h-full min-h-[400px] w-full overflow-hidden rounded-xl bg-slate-100 relative">
+                    <RescueMap teams={teams} onSelectTeam={setSelectedTeam} />
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="flex h-[700px] w-full flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xs">
+                <RescueMap teams={teams} onSelectTeam={setSelectedTeam} />
+              </div>
+            )}
+          </>
+        )}
       </main>
-
-      {/* Slide-over Sheets */}
-      <AddTeamSheet
-        open={isAddTeamOpen}
-        onOpenChange={setIsAddTeamOpen}
-        onAddTeam={handleAddTeam}
-      />
-
-      <TeamDetailSheet
-        team={selectedTeam}
-        open={isDetailOpen}
-        onOpenChange={setIsDetailOpen}
-        onUpdateStatus={handleUpdateStatus}
-      />
+      <TeamDetailSheet open={isDetailOpen} onOpenChange={setIsDetailOpen} team={selectedTeam} onUpdateStatus={handleUpdateStatus} />
     </div>
   );
 }
