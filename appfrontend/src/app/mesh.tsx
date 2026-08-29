@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -11,57 +11,41 @@ import { BottomTabInset, MaxContentWidth, Spacing } from '@/constants/theme';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Collapsible } from '@/components/ui/collapsible';
-
-
-
-interface PacketLog {
-  id: string;
-  origin: string;
-  seenFrom: string;
-  time: string;
-  status: 'Relayed' | 'Origin' | 'Dedup Skip';
-  rssi: string;
-}
-
-const SAMPLE_PACKETS: PacketLog[] = [
-  {
-    id: 'SOS-A4B1-01',
-    origin: 'Anon Device #42',
-    seenFrom: 'Anon Device #19',
-    rssi: '-68 dBm',
-    time: '14:27:04',
-    status: 'Relayed',
-  },
-  {
-    id: 'SOS-A4B1-01',
-    origin: 'Anon Device #42',
-    seenFrom: 'Anon Device #07',
-    rssi: '-82 dBm',
-    time: '14:27:12',
-    status: 'Dedup Skip',
-  },
-  {
-    id: 'SOS-8F22-09',
-    origin: 'Anon Device #71',
-    seenFrom: 'Anon Device #55',
-    rssi: '-74 dBm',
-    time: '14:21:40',
-    status: 'Relayed',
-  },
-  {
-    id: 'SOS-7C11-88',
-    origin: 'This Device (Owner SOS)',
-    seenFrom: '— (own broadcast)',
-    rssi: 'Local BLE',
-    time: '14:15:22',
-    status: 'Origin',
-  },
-];
+import { subscribeToMesh, PacketLog, RoutingMode } from '@/lib/sosService';
 
 export default function MeshScreen() {
   const safeAreaInsets = useSafeAreaInsets();
   const [relayEnabled, setRelayEnabled] = useState(true);
   const [dutyCycleMode, setDutyCycleMode] = useState(true);
+
+  const [meshState, setMeshState] = useState({
+    peerCount: 0,
+    packetLogs: [] as PacketLog[],
+    activePacket: null as any,
+    currentHops: 0,
+    isRelayActive: false,
+    isGateway: false,
+    routingMode: 'idle' as RoutingMode,
+    uploadedByHop: null as number | null,
+  });
+
+  useEffect(() => {
+    const unsubscribe = subscribeToMesh((state) => {
+      setMeshState({
+        peerCount: state.peerCount,
+        packetLogs: state.packetLogs,
+        activePacket: state.activePacket,
+        currentHops: state.currentHops,
+        isRelayActive: state.isRelayActive,
+        isGateway: state.isGateway,
+        routingMode: state.routingMode,
+        uploadedByHop: state.uploadedByHop,
+      });
+    });
+    return unsubscribe;
+  }, []);
+
+  const totalRelayed = meshState.packetLogs.filter(p => p.status === 'Relayed' || p.status === 'Uploaded').length;
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -87,28 +71,45 @@ export default function MeshScreen() {
             </View>
           </View>
 
-         
-
-
-
           {/* ── Live Metric Grid ─────────────────────────────── */}
           <View style={styles.metricsGrid}>
             <Card variant="default" style={styles.metricCard}>
               <Text style={styles.metricLabel}>NEARBY PHONES</Text>
-              <Text style={styles.metricValue}>04</Text>
+              <Text style={styles.metricValue}>{String(meshState.peerCount).padStart(2, '0')}</Text>
               <Text style={styles.metricSub}>With AASHA installed</Text>
             </Card>
 
             <Card variant="default" style={styles.metricCard}>
               <Text style={styles.metricLabel}>PACKETS RELAYED</Text>
-              <Text style={styles.metricValue}>18</Text>
+              <Text style={styles.metricValue}>{String(totalRelayed).padStart(2, '0')}</Text>
               <Text style={styles.metricSub}>0 dropped</Text>
             </Card>
 
             <Card variant="default" style={styles.metricCard}>
-              <Text style={styles.metricLabel}>DEDUP CACHE</Text>
-              <Text style={styles.metricValue}>1.4 KB</Text>
-              <Text style={styles.metricSub}>30-min TTL window</Text>
+              <Text style={styles.metricLabel}>ROUTING MODE</Text>
+              <Text style={[
+                styles.metricValue,
+                meshState.routingMode === 'direct'
+                  ? { color: '#38BDF8' }
+                  : meshState.routingMode === 'ble_mesh'
+                  ? { color: '#FCD34D' }
+                  : { color: '#64748B' },
+              ]}>
+                {meshState.routingMode === 'direct'
+                  ? 'Direct 🌐'
+                  : meshState.routingMode === 'ble_mesh'
+                  ? 'BLE Mesh 🔵'
+                  : 'Idle'}
+              </Text>
+              <Text style={styles.metricSub}>
+                {meshState.routingMode === 'direct'
+                  ? 'Sent via internet'
+                  : meshState.uploadedByHop !== null
+                  ? `Uploaded at hop ${meshState.uploadedByHop}`
+                  : meshState.routingMode === 'ble_mesh'
+                  ? 'Seeking gateway peer'
+                  : 'No active SOS'}
+              </Text>
             </Card>
 
             <Card variant="default" style={styles.metricCard}>
@@ -129,32 +130,42 @@ export default function MeshScreen() {
             </Text>
 
             <View style={styles.packetList}>
-              {SAMPLE_PACKETS.map((pkt, idx) => (
-                <Card key={idx} variant="default" style={styles.packetCard}>
-                  <View style={styles.packetHeader}>
-                    <Text style={styles.packetId}>{pkt.id}</Text>
-                    <Badge
-                      label={pkt.status}
-                      variant={
-                        pkt.status === 'Relayed'
-                          ? 'success'
-                          : pkt.status === 'Origin'
-                          ? 'danger'
-                          : 'neutral'
-                      }
-                    />
-                  </View>
-
-                  <View style={styles.packetMetaRow}>
-                    <Text style={styles.packetMeta}>Origin: {pkt.origin}</Text>
-                    <Text style={styles.packetMeta}>RSSI: {pkt.rssi}</Text>
-                  </View>
-                  <View style={styles.packetMetaRow}>
-                    <Text style={styles.packetMeta}>Received from: {pkt.seenFrom}</Text>
-                    <Text style={styles.packetMeta}>{pkt.time}</Text>
-                  </View>
+              {meshState.packetLogs.length === 0 ? (
+                <Card variant="default" style={styles.packetCard}>
+                  <Text style={{ textAlign: 'center', color: '#64748B', paddingVertical: 12 }}>
+                    No BLE packets detected. Trigger an SOS on the Home screen to start broadcasting.
+                  </Text>
                 </Card>
-              ))}
+              ) : (
+                meshState.packetLogs.map((pkt, idx) => (
+                  <Card key={idx} variant="default" style={styles.packetCard}>
+                    <View style={styles.packetHeader}>
+                      <Text style={styles.packetId}>{pkt.id}</Text>
+                      <Badge
+                        label={pkt.status}
+                        variant={
+                          pkt.status === 'Relayed'
+                            ? 'success'
+                            : pkt.status === 'Uploaded'
+                            ? 'info'
+                            : pkt.status === 'Origin'
+                            ? 'danger'
+                            : 'neutral'
+                        }
+                      />
+                    </View>
+
+                    <View style={styles.packetMetaRow}>
+                      <Text style={styles.packetMeta}>Origin: {pkt.origin}</Text>
+                      <Text style={styles.packetMeta}>RSSI: {pkt.rssi}</Text>
+                    </View>
+                    <View style={styles.packetMetaRow}>
+                      <Text style={styles.packetMeta}>Received from: {pkt.seenFrom}</Text>
+                      <Text style={styles.packetMeta}>{pkt.time}</Text>
+                    </View>
+                  </Card>
+                ))
+              )}
             </View>
           </View>
 

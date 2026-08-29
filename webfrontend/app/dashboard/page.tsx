@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import {
   APIProvider,
   Map,
@@ -25,6 +25,42 @@ import SosEventDetail, {
   SosEvent,
   SosStatus,
 } from "@/app/components/SOSDetails";
+import { io } from "socket.io-client";
+
+function mapApiEventToSosEvent(apiEvent: any): SosEvent {
+  const reportedDate = new Date(apiEvent.reportedAt);
+  const timeStr = reportedDate.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  const dateStr = reportedDate.toLocaleDateString([], { day: "2-digit", month: "short" });
+  
+  const suggestedTeam = {
+    name: "Team Echo",
+    station: "Lukla Station · 2.8 km away",
+    status: "Available",
+    eta: "18 min",
+    capabilities: "Rope Rescue · Trauma Care",
+  };
+
+  return {
+    id: apiEvent.packetId || apiEvent.id,
+    place: apiEvent.latitude === 27.6869 ? "Lukla, Solukhumbu" : `Lat: ${apiEvent.latitude.toFixed(4)}, Lng: ${apiEvent.longitude.toFixed(4)}`,
+    region: "Khumbu",
+    status: apiEvent.status || "pending",
+    meta: `Received ${timeStr} · ${apiEvent.hopCount || 0} hops`,
+    priorityLabel: apiEvent.status === "pending" ? "Priority 1 · Immediate Review" : apiEvent.status === "assigned" ? "Priority 2 · Unit En Route" : "Resolved · Mission Complete",
+    battery: apiEvent.battery ?? 100,
+    meshHops: apiEvent.hopCount || 0,
+    receivedTime: timeStr,
+    receivedDate: `${dateStr} · NPT`,
+    accuracy: "±15m",
+    lat: apiEvent.latitude,
+    lng: apiEvent.longitude,
+    elevation: 2860,
+    terrainLabel: "marked SOS location",
+    callerNote: apiEvent.note && apiEvent.note.trim().length > 0 ? apiEvent.note.trim() : "Nothing",
+    assignedTeam: apiEvent.assignedTeamName || (apiEvent.status === "assigned" ? "Team Echo" : undefined),
+    suggestedTeam
+  };
+}
 
 const INITIAL_SOS_EVENTS: SosEvent[] = [
   {
@@ -256,9 +292,56 @@ function SosMarker({
 }
 
 export default function Dashboard() {
-  const [events, setEvents] = useState<SosEvent[]>(INITIAL_SOS_EVENTS);
+  const [events, setEvents] = useState<SosEvent[]>([]);
   const [tab, setTab] = useState<SosStatus>("pending");
   const [selectedSosEvent, setSelectedSosEvent] = useState<SosEvent | null>(null);
+
+  useEffect(() => {
+    // 1. Fetch initial SOS events from the database
+    const fetchEvents = async () => {
+      try {
+        const res = await fetch("http://localhost:4000/api/sos");
+        const data = await res.json();
+        if (data.events) {
+          const mapped = data.events.map(mapApiEventToSosEvent);
+          setEvents(mapped);
+        }
+      } catch (err) {
+        console.error("Failed to fetch initial events:", err);
+      }
+    };
+    fetchEvents();
+
+    // 2. Setup real-time listeners via Socket.io
+    const socket = io("http://localhost:4000");
+
+    socket.on("connect", () => {
+      console.log("Connected to Socket.io backend!");
+    });
+
+    socket.on("sos:new", (apiEvent) => {
+      console.log("Socket: New SOS event received", apiEvent);
+      setEvents((prev) => {
+        if (prev.some((e) => e.id === apiEvent.packetId)) return prev;
+        return [mapApiEventToSosEvent(apiEvent), ...prev];
+      });
+    });
+
+    socket.on("sos:updated", (apiEvent) => {
+      console.log("Socket: SOS updated", apiEvent);
+      setEvents((prev) =>
+        prev.map((e) =>
+          e.id === apiEvent.packetId
+            ? mapApiEventToSosEvent({ ...apiEvent, note: apiEvent.note ?? e.callerNote })
+            : e
+        )
+      );
+    });
+
+    return () => {
+      socket.disconnect();
+    };
+  }, []);
 
   const counts = useMemo(
     () => ({
@@ -271,33 +354,53 @@ export default function Dashboard() {
 
   const filtered = events.filter((e) => e.status === tab);
 
-  const handleAssignTeam = (eventId: string, teamName: string) => {
-    setEvents((prev) =>
-      prev.map((e) =>
-        e.id === eventId
-          ? {
-              ...e,
-              status: "assigned",
-              assignedTeam: teamName,
-              meta: `${teamName} assigned · Just now`,
-            }
-          : e
-      )
-    );
+  const handleAssignTeam = async (eventId: string, teamName: string) => {
+    // Mock teamId for assignment matching the team name selected
+    const teamId = "team-uuid-1234-5678";
+    try {
+      setEvents((prev) =>
+        prev.map((e) =>
+          e.id === eventId
+            ? {
+                ...e,
+                status: "assigned",
+                assignedTeam: teamName,
+                meta: `${teamName} assigned · Just now`,
+              }
+            : e
+        )
+      );
+      await fetch(`http://localhost:4000/api/sos/${eventId}/assign`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ teamId })
+      });
+    } catch (err) {
+      console.error("Assign team REST failed:", err);
+    }
   };
 
-  const handleResolveEvent = (eventId: string) => {
-    setEvents((prev) =>
-      prev.map((e) =>
-        e.id === eventId
-          ? {
-              ...e,
-              status: "resolved",
-              meta: `Closed & resolved · Just now`,
-            }
-          : e
-      )
-    );
+  const handleResolveEvent = async (eventId: string) => {
+    try {
+      setEvents((prev) =>
+        prev.map((e) =>
+          e.id === eventId
+            ? {
+                ...e,
+                status: "resolved",
+                meta: `Closed & resolved · Just now`,
+              }
+            : e
+        )
+      );
+      await fetch(`http://localhost:4000/api/sos/${eventId}/resolve`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ resolution: "resolved" })
+      });
+    } catch (err) {
+      console.error("Resolve event REST failed:", err);
+    }
   };
 
   // If user clicked on an SOS event, show the full SOS Event Detail view

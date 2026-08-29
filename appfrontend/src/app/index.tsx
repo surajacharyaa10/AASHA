@@ -1,10 +1,12 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   ScrollView,
   TextInput,
+  Pressable,
+  Alert,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BottomTabInset, MaxContentWidth, Spacing } from '@/constants/theme';
@@ -13,6 +15,16 @@ import { LocationCard } from '@/components/sos/location-card';
 import { MeshStatusBanner } from '@/components/sos/mesh-banner';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Icon } from '@/components/ui/icon';
+import * as Battery from 'expo-battery';
+import { sendSos, cancelSos, subscribeToMesh, RoutingMode } from '@/lib/sosService';
+import {
+  initLocation,
+  subscribeToLocation,
+  formatAccuracy,
+  formatAltitude,
+  DeviceLocation,
+} from '@/lib/locationService';
 
 /**
  * AASHA SOS — Main Emergency Screen
@@ -28,15 +40,74 @@ export default function HomeScreen() {
 
   const [isSosTriggered, setIsSosTriggered] = useState(false);
   const [note, setNote] = useState('');
+  const [batteryLevel, setBatteryLevel] = useState<number>(100);
+  const [location, setLocation] = useState<DeviceLocation>({
+    latitude: 0,
+    longitude: 0,
+    altitude: null,
+    accuracy: null,
+    heading: null,
+    placeName: null,
+    loading: true,
+    error: null,
+  });
+  const [meshState, setMeshState] = useState({
+    peerCount: 0,
+    isRelayActive: false,
+    isGateway: false,
+    routingMode: 'idle' as RoutingMode,
+    uploadedByHop: null as number | null,
+  });
+
+  useEffect(() => {
+    // Start GPS — requests permission on first call
+    initLocation();
+
+    // Subscribe to live location updates
+    const unsubLoc = subscribeToLocation(setLocation);
+
+    // Subscribe to mesh/SOS state
+    const unsubMesh = subscribeToMesh((state) => {
+      setMeshState({
+        peerCount: state.peerCount,
+        isRelayActive: state.isRelayActive,
+        isGateway: state.isGateway,
+        routingMode: state.routingMode,
+        uploadedByHop: state.uploadedByHop,
+      });
+      setIsSosTriggered(!!state.activePacket);
+    });
+
+    // Battery monitoring
+    const fetchBattery = async () => {
+      const level = await Battery.getBatteryLevelAsync();
+      if (level !== -1) setBatteryLevel(Math.round(level * 100));
+    };
+    fetchBattery();
+    const batterySub = Battery.addBatteryLevelListener(({ batteryLevel }) => {
+      setBatteryLevel(Math.round(batteryLevel * 100));
+    });
+
+    return () => {
+      unsubLoc();
+      unsubMesh();
+      batterySub.remove();
+    };
+  }, []);
 
   const handleTriggerSos = () => {
-    setIsSosTriggered(true);
-    // SOS fires instantly — no dialog, no tap required
+    sendSos({
+      latitude:  location.latitude,
+      longitude: location.longitude,
+      battery: batteryLevel,
+      note
+    });
   };
 
   const handleCancelSos = () => {
-    setIsSosTriggered(false);
+    cancelSos();
   };
+
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -64,18 +135,56 @@ export default function HomeScreen() {
               </Text>
             </View>
 
-            <View style={styles.gpsIndicator}>
-              <View style={styles.gpsGreen} />
-              <Text style={styles.gpsText}>GPS Locked</Text>
+            {/* ── Right Action Controls (GPS + Notification) ── */}
+            <View style={styles.topBarRight}>
+              {/* GPS status indicator */}
+              <View style={styles.gpsIndicator}>
+                <View style={[
+                  styles.gpsGreen,
+                  location.loading && { backgroundColor: '#F59E0B' },
+                  !!location.error && { backgroundColor: '#EF4444' },
+                ]} />
+                <Text style={[
+                  styles.gpsText,
+                  location.loading && { color: '#D97706' },
+                  !!location.error && { color: '#DC2626' },
+                ]}>
+                  {location.loading
+                    ? 'Getting GPS…'
+                    : location.error
+                    ? 'GPS Error'
+                    : `GPS · ${formatAccuracy(location.accuracy)}`}
+                </Text>
+              </View>
+
+              {/* Notification Button */}
+              <Pressable
+                onPress={() => {
+                  Alert.alert(
+                    'Emergency Notifications',
+                    '• Mesh Network: Active & Listening\n• Sector Status: Normal\n• No active hazard warnings in your area.',
+                    [{ text: 'Dismiss', style: 'default' }]
+                  );
+                }}
+                style={({ pressed }) => [
+                  styles.notificationBtn,
+                  pressed && { opacity: 0.7, backgroundColor: '#E2E8F0' }
+                ]}
+              >
+                <Icon name="bell" size={16} color="#334155" />
+                <View style={styles.notifDot} />
+              </Pressable>
             </View>
           </View>
 
           {/* ── BitChat BLE Peer Status Bar ───────────────── */}
           <MeshStatusBanner
-            peerCount={4}
-            isRelayActive={true}
-            batteryPercent={78}
-            isGateway={false}
+            peerCount={meshState.peerCount}
+            isRelayActive={meshState.isRelayActive}
+            batteryPercent={batteryLevel}
+            isGateway={meshState.isGateway}
+            routingMode={meshState.routingMode}
+            uploadedByHop={meshState.uploadedByHop}
           />
 
           {/* ── Active SOS Broadcast Status ───────────────── */}
@@ -84,17 +193,42 @@ export default function HomeScreen() {
               <View style={styles.activeBannerHeader}>
                 <View style={styles.activePulse} />
                 <Text style={styles.activeBannerTitle}>
-                  SOS BROADCASTING
+                  {meshState.routingMode === 'direct'
+                    ? '✅ SOS SENT DIRECTLY'
+                    : meshState.uploadedByHop !== null
+                    ? `✅ SOS UPLOADED (HOP ${meshState.uploadedByHop})`
+                    : '📡 SOS BROADCASTING VIA BLE'}
                 </Text>
               </View>
-              <Text style={styles.activeBannerDesc}>
-                Your location &amp; emergency signal is spreading phone-to-phone
-                over Bluetooth. No internet or SIM needed — rescue command will
-                receive it and dispatch the nearest available team.
-              </Text>
+
+              {meshState.routingMode === 'direct' ? (
+                <Text style={styles.activeBannerDesc}>
+                  Your device has internet — the SOS was uploaded{' '}
+                  <Text style={{ fontWeight: '800' }}>directly</Text> to the
+                  rescue dashboard. Rescue teams can see your location now.
+                  BLE mesh relay is also active as a backup.
+                </Text>
+              ) : meshState.uploadedByHop !== null ? (
+                <Text style={styles.activeBannerDesc}>
+                  A nearby phone with internet picked up your SOS at{' '}
+                  <Text style={{ fontWeight: '800' }}>hop {meshState.uploadedByHop}</Text>{' '}
+                  and uploaded it to the rescue dashboard. Your location has
+                  reached the rescue command centre.
+                </Text>
+              ) : (
+                <Text style={styles.activeBannerDesc}>
+                  No internet on this device — broadcasting via{' '}
+                  <Text style={{ fontWeight: '800' }}>Bluetooth mesh</Text>.{' '}
+                  Every nearby AASHA phone relays your SOS further. The first
+                  phone that finds internet will upload it to the rescue dashboard.
+                </Text>
+              )}
+
               <View style={styles.waitingBox}>
                 <Text style={styles.waitingText}>
-                  ⏳ Awaiting rescue team dispatch from command centre
+                  {meshState.routingMode === 'direct' || meshState.uploadedByHop !== null
+                    ? '📡 Rescue team dispatch in progress…'
+                    : '⏳ Waiting for a gateway peer with internet…'}
                 </Text>
               </View>
             </Card>
@@ -110,11 +244,13 @@ export default function HomeScreen() {
 
           {/* ── Live GPS Location Card ────────────────── */}
           <LocationCard
-            lat={27.6869}
-            lng={86.7314}
-            elevation={2860}
-            accuracy="±12m"
-            locationName="Lukla East Ridge, Solukhumbu"
+            lat={location.latitude}
+            lng={location.longitude}
+            elevation={location.altitude}
+            accuracy={formatAccuracy(location.accuracy)}
+            placeName={location.placeName}
+            loading={location.loading}
+            error={location.error}
           />
 
           {/* ── Optional Distress Note ────────────────── */}
@@ -214,6 +350,33 @@ const styles = StyleSheet.create({
     color: '#64748B',
     marginTop: 1,
   },
+  topBarRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  notificationBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#F1F5F9',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    alignItems: 'center',
+    justifyContent: 'center',
+    position: 'relative',
+  },
+  notifDot: {
+    position: 'absolute',
+    top: 6,
+    right: 6,
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#10B981',
+    borderWidth: 1,
+    borderColor: '#FFFFFF',
+  },
   gpsIndicator: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -222,7 +385,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#A7F3D0',
     paddingHorizontal: 8,
-    paddingVertical: 4,
+    paddingVertical: 6,
     borderRadius: 12,
   },
   gpsGreen: {

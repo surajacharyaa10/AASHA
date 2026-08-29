@@ -25,6 +25,8 @@ const SYMBOL_MAP: Record<string, SymbolViewProps['name']> = {
   radio: { ios: 'dot.radiowaves.left.and.right', android: 'radio', web: 'radio' },
   info: { ios: 'info.circle.fill', android: 'info', web: 'info' },
   settings: { ios: 'gearshape.fill', android: 'settings', web: 'settings' },
+  bell: { ios: 'bell.fill', android: 'notifications', web: 'notifications' },
+  notification: { ios: 'bell.fill', android: 'notifications', web: 'notifications' },
   chevronRight: { ios: 'chevron.right', android: 'chevron_right', web: 'chevron_right' },
   share: { ios: 'square.and.arrow.up.fill', android: 'share', web: 'share' },
 };

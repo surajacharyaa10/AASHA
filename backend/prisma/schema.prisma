@@ -1,0 +1,53 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mongodb"
+  url      = env("DATABASE_URL")
+}
+
+model SosEvent {
+  id               String   @id @default(uuid()) @map("_id")
+  packetId         String   @unique @map("packet_id")
+  originDeviceId   String   @map("origin_device_id")
+  latitude         Float
+  longitude        Float
+  battery          Int?
+  hopCount         Int?     @map("hop_count")
+  status           String   @default("pending") // pending | assigned | resolved | false_alarm
+  reportedAt       DateTime @map("reported_at")
+  receivedAt       DateTime @default(now()) @map("received_at")
+  assignedTeamId   String?  @map("assigned_team_id")
+  assignedTeam     RescueTeam? @relation(fields: [assignedTeamId], references: [id])
+  resolvedAt       DateTime? @map("resolved_at")
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @updatedAt @map("updated_at")
+
+  @@map("sos_events")
+}
+
+model RescueTeam {
+  id          String   @id @default(uuid()) @map("_id")
+  name        String
+  phone       String?
+  status      String   @default("available") // available | busy | offline
+  currentLat  Float?   @map("current_lat")
+  currentLng  Float?   @map("current_lng")
+  fcmToken    String?  @map("fcm_token")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  events      SosEvent[]
+
+  @@map("rescue_teams")
+}
+
+model User {
+  id           String   @id @default(uuid()) @map("_id")
+  email        String   @unique
+  passwordHash String   @map("password_hash")
+  role         String   @default("dispatcher") // admin | dispatcher
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  @@map("users")
+}
