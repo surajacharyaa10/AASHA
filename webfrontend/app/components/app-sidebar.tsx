@@ -14,6 +14,7 @@ import {
   ChevronUp,
   AlertTriangle,
   Map,
+  Newspaper,
 } from "lucide-react";
 
 import {
@@ -59,6 +60,11 @@ const menuItems = [
     title: "Disaster Monitor",
     url: "/disaster",
     icon: AlertTriangle,
+  },
+  {
+    title: "News Feed",
+    url: "/news",
+    icon: Newspaper,
   },
   {
     title: "Resources Map",
