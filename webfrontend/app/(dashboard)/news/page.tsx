@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import BACKEND_URL from "@/lib/config";
 
 interface NewsArticle {
   title: string;
@@ -86,7 +87,7 @@ export default function NewsPage() {
   const fetchNews = useCallback(async () => {
     try {
       setError(null);
-      const res = await fetch('/api/news/latest');
+      const res = await fetch(`${BACKEND_URL}/api/news/latest`);
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data: NewsResponse = await res.json();
       if (data.status === "success" && Array.isArray(data.results)) {

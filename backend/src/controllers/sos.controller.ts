@@ -181,6 +181,7 @@ const assignTeam = async (req: Request<{ id: string }, {}, AssignTeamInput>, res
     const { teamId } = req.body;
     const db = await connectDB();
     const sosEventsCollection = db.collection('sos_events');
+    const rescueTeamRegistrationsCollection = db.collection('rescue_team_registrations');
 
     let query = {};
     if (ObjectId.isValid(id)) {
@@ -194,18 +195,16 @@ const assignTeam = async (req: Request<{ id: string }, {}, AssignTeamInput>, res
       return res.status(404).json({ error: 'Event not found' });
     }
 
-    // Try to get team details to send a descriptive update
-    const rescueTeamsCollection = db.collection('rescue_teams');
     let teamName = 'Assigned Team';
     if (ObjectId.isValid(teamId)) {
-      const team = await rescueTeamsCollection.findOne({ _id: new ObjectId(teamId) });
+      const team = await rescueTeamRegistrationsCollection.findOne({ _id: new ObjectId(teamId) });
       if (team) {
-        teamName = team.name;
+        teamName = team.teamName;
       }
     } else {
-      const team = await rescueTeamsCollection.findOne({ id: teamId });
+      const team = await rescueTeamRegistrationsCollection.findOne({ _id: new ObjectId(teamId) });
       if (team) {
-        teamName = team.name;
+        teamName = team.teamName;
       }
     }
 
@@ -220,6 +219,17 @@ const assignTeam = async (req: Request<{ id: string }, {}, AssignTeamInput>, res
     if (!resultEvent) {
       return res.status(404).json({ error: 'Event not found or failed to update' });
     }
+
+    await rescueTeamRegistrationsCollection.updateOne(
+      { _id: new ObjectId(teamId) },
+      {
+        $set: {
+          availability: 'deployed',
+          assignment: `Mission ${resultEvent.packetId}`,
+          updatedAt: new Date(),
+        },
+      }
+    );
 
     // Emit event socket update
     const io = (req.app as any).get('io');

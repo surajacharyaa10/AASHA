@@ -116,7 +116,6 @@ export default function RescueTeamRoster() {
           return {
             ...t,
             availability: status,
-            assignment: status === "deployed" ? "SOS-NEP-ASSIGNED" : null,
             readiness: status === "off-duty" ? null : t.readiness ?? 90,
           };
         }
@@ -127,7 +126,6 @@ export default function RescueTeamRoster() {
       setSelectedTeam((prev) => prev ? {
         ...prev,
         availability: status,
-        assignment: status === "deployed" ? "SOS-NEP-ASSIGNED" : null,
         readiness: status === "off-duty" ? null : prev.readiness ?? 90,
       } : null);
     }
