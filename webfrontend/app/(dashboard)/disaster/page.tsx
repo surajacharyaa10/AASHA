@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { Map, Overlay, GeoJson } from "pigeon-maps";
-import { Plus, Minus, LocateFixed, AlertTriangle, RefreshCw, Shield, Globe } from "lucide-react";
+import { Plus, Minus, LocateFixed, AlertTriangle, RefreshCw, Shield, Globe, Search, UserPlus, Loader2 } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { DisasterMarker } from "@/components/disaster/DisasterMarker";
@@ -45,18 +45,41 @@ export default function DisasterPage() {
   const [mapCenter, setMapCenter] = useState<[number, number]>([NEPAL_CENTER.lat, NEPAL_CENTER.lng]);
   const [mapZoom, setMapZoom] = useState(7);
 
+  const [investigating, setInvestigating] = useState(false);
+  const [nearestTeam, setNearestTeam] = useState<{teamName: string; district: string; province: string; distanceKm: number; etaMinutes: number; leadName: string; leadPhone: string} | null>(null);
+  const [investigationId, setInvestigationId] = useState<string | null>(null);
+  const [investigationStatus, setInvestigationStatus] = useState<string | null>(null);
+  const [investigations, setInvestigations] = useState<{id: string; disasterName: string; location: string; status: string; assessment?: string; assignedTeamName?: string; lat: number; lng: number}[]>([]);
+  const [showInvestigations, setShowInvestigations] = useState(false);
+
+  const fetchInvestigations = useCallback(async () => {
+    try {
+      const res = await fetch(`${BACKEND}/api/investigations`);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      setInvestigations(data.investigations || []);
+    } catch (err) {
+      console.error("Failed to fetch investigations:", err);
+    }
+  }, []);
+
   const fetchDisasters = async () => {
     setLoading(true);
     setError(null);
     try {
       const res = await fetch(`${BACKEND}/api/disasters/latest/by-country-code?countryCode=NPL&limit=50&page=1`);
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      if (!res.ok) {
+        setError(`Unable to load disasters (HTTP ${res.status}). The disaster data provider may be rate-limiting requests.`);
+        setDisasters([]);
+        return;
+      }
       const data = await res.json();
       const events = Array.isArray(data?.result) ? data.result : [];
       setDisasters(events as DisasterEvent[]);
     } catch (err) {
       console.error("Failed to fetch disasters:", err);
       setError(err instanceof Error ? err.message : "Failed to fetch disaster data");
+      setDisasters([]);
     } finally {
       setLoading(false);
     }
@@ -67,12 +90,27 @@ export default function DisasterPage() {
     return () => clearTimeout(timer);
   }, []);
 
+  useEffect(() => {
+    if (!showInvestigations) return;
+    // Initial fetch + polling for investigation updates
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    fetchInvestigations();
+    const interval = setInterval(() => {
+      fetchInvestigations();
+    }, 15000);
+    return () => clearInterval(interval);
+  }, [showInvestigations, fetchInvestigations]);
+
   const fetchPolygon = async (sourceEventId: string) => {
     setLoadingPolygon(true);
     setPolygon(null);
     try {
       const res = await fetch(`${BACKEND}/api/disasters/geometry/by-source-eventId?sourceEventId=${sourceEventId}`);
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      if (!res.ok) {
+        console.error("Failed to fetch disaster polygon:", res.status);
+        setPolygon(null);
+        return;
+      }
       const data = await res.json() as GeometryResponse;
       const geometry = data?.result?.[0]?.geometry;
       const coordinates = geometry?.coordinates;
@@ -97,6 +135,61 @@ export default function DisasterPage() {
     setSelectedDisaster(disaster);
     if (disaster.source_event_id) {
       fetchPolygon(disaster.source_event_id);
+    }
+    setInvestigating(false);
+    setNearestTeam(null);
+    setInvestigationId(null);
+    setInvestigationStatus(null);
+  };
+
+  const handleInvestigate = async () => {
+    if (!selectedDisaster) return;
+    setInvestigating(true);
+    setNearestTeam(null);
+    try {
+      const res = await fetch(`${BACKEND}/api/investigations/nearest-team?lat=${selectedDisaster.lat}&lng=${selectedDisaster.lng}`);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      if (data.team) {
+        setNearestTeam(data.team);
+      } else {
+        setNearestTeam(null);
+      }
+    } catch (err) {
+      console.error("Failed to find nearest team:", err);
+      setNearestTeam(null);
+    } finally {
+      setInvestigating(false);
+    }
+  };
+
+  const handleAssignInvestigation = async () => {
+    if (!selectedDisaster || !nearestTeam) return;
+    try {
+      const createRes = await fetch(`${BACKEND}/api/investigations`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          disasterEventId: selectedDisaster.event_id,
+          disasterName: selectedDisaster.event_name,
+          lat: selectedDisaster.lat,
+          lng: selectedDisaster.lng,
+          location: [selectedDisaster.city, selectedDisaster.state, selectedDisaster.country_code].filter(Boolean).join(", "),
+        }),
+      });
+      if (!createRes.ok) throw new Error(`HTTP ${createRes.status}`);
+      const created = await createRes.json();
+      setInvestigationId(created.id);
+
+      const assignRes = await fetch(`${BACKEND}/api/investigations/${created.id}/assign`, {
+        method: 'POST',
+      });
+      if (!assignRes.ok) throw new Error(`HTTP ${assignRes.status}`);
+      const assigned = await assignRes.json();
+      setInvestigationStatus(assigned.investigation?.status || 'investigating');
+      setNearestTeam(null);
+    } catch (err) {
+      console.error("Failed to assign investigation:", err);
     }
   };
 
@@ -147,6 +240,15 @@ export default function DisasterPage() {
           </div>
         </div>
         <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => { setShowInvestigations(!showInvestigations); if (!showInvestigations) fetchInvestigations(); }}
+            className="gap-2 border-slate-200 font-semibold text-slate-700 hover:bg-slate-50"
+          >
+            <Search className="h-4 w-4" />
+            {showInvestigations ? 'Hide Investigations' : 'Investigations'}
+          </Button>
           <Button
             variant="outline"
             size="sm"
@@ -265,6 +367,44 @@ export default function DisasterPage() {
           )}
         </div>
 
+        {showInvestigations && (
+          <div className="w-80 shrink-0 overflow-y-auto rounded-2xl border border-slate-200 bg-white shadow-xs">
+            <div className="border-b border-slate-100 px-4 py-3">
+              <h2 className="text-sm font-bold text-slate-900">Investigations</h2>
+              <p className="text-xs text-slate-500">{investigations.length} total</p>
+            </div>
+            <div className="p-3 space-y-2">
+              {investigations.length === 0 && (
+                <p className="text-xs text-slate-400 text-center py-4">No investigations yet</p>
+              )}
+              {investigations.map((inv) => (
+                <div key={inv.id} className="rounded-lg border border-slate-200 p-3">
+                  <p className="text-xs font-bold text-slate-900 truncate">{inv.disasterName}</p>
+                  <p className="text-[11px] text-slate-500">{inv.location}</p>
+                  <div className="mt-1 flex items-center gap-2">
+                    <span className={`inline-flex rounded-full px-2 py-0.5 text-[10px] font-bold border ${
+                      inv.status === 'investigating' ? 'bg-amber-50 text-amber-700 border-amber-200' :
+                      inv.status === 'resolved' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
+                      inv.status === 'false_alarm' ? 'bg-slate-50 text-slate-700 border-slate-200' :
+                      'bg-sky-50 text-sky-700 border-sky-200'
+                    }`}>
+                      {inv.status}
+                    </span>
+                    {inv.assessment && (
+                      <span className="inline-flex rounded-full px-2 py-0.5 text-[10px] font-bold border bg-orange-50 text-orange-700 border-orange-200">
+                        {inv.assessment.replace('_', ' ')}
+                      </span>
+                    )}
+                  </div>
+                  {inv.assignedTeamName && (
+                    <p className="text-[11px] text-slate-600 mt-1">Team: {inv.assignedTeamName}</p>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* Map */}
         <div className="relative min-h-0 flex-1 overflow-hidden rounded-2xl border border-slate-200 bg-slate-100 shadow-xs">
           <Map
@@ -287,6 +427,22 @@ export default function DisasterPage() {
                     severity={disaster.proximity_severity_level}
                     onClick={() => handleSelectDisaster(disaster)}
                   />
+                </div>
+              </Overlay>
+            ))}
+
+            {investigations.filter(inv => inv.status === 'investigating' || inv.status === 'pending').map((inv) => (
+              <Overlay
+                key={`inv-${inv.id}`}
+                anchor={[inv.lat, inv.lng]}
+                offset={[0, 0]}
+              >
+                <div className="relative flex items-center justify-center">
+                  <div className="absolute h-16 w-16 animate-ping rounded-full bg-amber-400/40" style={{ animationDuration: '2s' }} />
+                  <div className="relative h-10 w-10 rounded-full border-2 border-amber-500 bg-amber-500/20 shadow-lg backdrop-blur-sm" />
+                  <div className="absolute -bottom-5 whitespace-nowrap rounded-full bg-amber-600 px-2 py-0.5 text-[9px] font-bold text-white shadow-md">
+                    INVESTIGATING
+                  </div>
                 </div>
               </Overlay>
             ))}
@@ -352,6 +508,7 @@ export default function DisasterPage() {
             <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-cyan-600" /> Cyclone</span>
             <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-orange-600" /> Extreme Temp</span>
             <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-red-800" /> Volcano</span>
+            <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-amber-500 animate-pulse" /> Investigating</span>
           </div>
 
           {/* Selected disaster detail panel */}
@@ -432,6 +589,56 @@ export default function DisasterPage() {
                     </div>
                   </div>
                 )}
+
+                <div className="border-t border-slate-100 pt-3 mt-3">
+                  <p className="text-xs font-semibold text-slate-500 mb-2">Investigation</p>
+                  {!investigationId ? (
+                    <>
+                      {!nearestTeam && !investigating && (
+                        <Button
+                          size="sm"
+                          onClick={handleInvestigate}
+                          className="w-full gap-2 bg-amber-600 font-semibold text-white hover:bg-amber-700"
+                        >
+                          <Search className="h-4 w-4" />
+                          Investigate
+                        </Button>
+                      )}
+                      {investigating && (
+                        <div className="flex items-center justify-center gap-2 py-2">
+                          <Loader2 className="h-4 w-4 animate-spin text-amber-600" />
+                          <span className="text-xs font-semibold text-slate-600">Finding nearest team...</span>
+                        </div>
+                      )}
+                      {nearestTeam && (
+                        <div className="space-y-2">
+                          <div className="rounded-lg border border-amber-200 bg-amber-50 p-2">
+                            <p className="text-xs font-bold text-amber-900">Nearest Team</p>
+                            <p className="text-sm font-semibold text-amber-800">{nearestTeam.teamName}</p>
+                            <p className="text-[11px] text-amber-700">{nearestTeam.district}, {nearestTeam.province}</p>
+                            <p className="text-[11px] text-amber-700">{nearestTeam.distanceKm} km · ~{nearestTeam.etaMinutes} min ETA</p>
+                            <p className="text-[11px] text-amber-700">Leader: {nearestTeam.leadName} ({nearestTeam.leadPhone})</p>
+                          </div>
+                          <Button
+                            size="sm"
+                            onClick={handleAssignInvestigation}
+                            className="w-full gap-2 bg-red-600 font-semibold text-white hover:bg-red-700"
+                          >
+                            <UserPlus className="h-4 w-4" />
+                            Assign Team
+                          </Button>
+                        </div>
+                      )}
+                    </>
+                  ) : (
+                    <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-2">
+                      <p className="text-xs font-bold text-emerald-900">Investigation Active</p>
+                      <p className="text-[11px] text-emerald-700">ID: {investigationId}</p>
+                      <p className="text-[11px] text-emerald-700">Status: {investigationStatus || 'investigating'}</p>
+                      <p className="text-[11px] text-emerald-700">Assigned: {nearestTeam?.teamName || 'Team assigned'}</p>
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
           )}

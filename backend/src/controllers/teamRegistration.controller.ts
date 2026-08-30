@@ -176,6 +176,35 @@ export const uploadRegistrationDocument = async (req: Request, res: Response) =>
   }
 };
 
+// 5. Delete a team registration (and any provisioned rescue team)
+export const deleteRegistration = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+
+    if (!ObjectId.isValid(id)) {
+      return res.status(400).json({ error: 'Invalid registration ID' });
+    }
+
+    const db = await connectDB();
+    const registrationsCollection = db.collection('rescue_team_registrations');
+    const rescueTeamsCollection = db.collection('rescue_teams');
+
+    const result = await registrationsCollection.deleteOne({ _id: new ObjectId(id) });
+
+    if (result.deletedCount === 0) {
+      return res.status(404).json({ error: 'Team registration not found' });
+    }
+
+    // Also remove the provisioned active team if it exists
+    await rescueTeamsCollection.deleteOne({ registrationId: id });
+
+    return res.json({ success: true, message: 'Team deleted successfully' });
+  } catch (error) {
+    console.error('Error deleting registration:', error);
+    return res.status(500).json({ error: 'Failed to delete team' });
+  }
+};
+
 // 4. Update registration status (Approve / Reject)
 
 export const updateRegistrationStatus = async (req: Request, res: Response) => {

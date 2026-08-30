@@ -15,6 +15,7 @@ import {
   AlertTriangle,
   Map,
   Newspaper,
+  Trash2,
 } from "lucide-react";
 
 import {
@@ -45,6 +46,11 @@ const menuItems = [
     title: "Team Registration",
     url: "/team-registration",
     icon: UserPlus,
+  },
+  {
+    title: "Team Management",
+    url: "/team-management",
+    icon: Trash2,
   },
   {
     title: "Analytics",

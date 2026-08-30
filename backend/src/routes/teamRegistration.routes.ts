@@ -5,6 +5,7 @@ import {
   getTeamRegistrations,
   uploadRegistrationDocument,
   updateRegistrationStatus,
+  deleteRegistration,
 } from '../controllers/teamRegistration.controller';
 
 const router = Router();
@@ -20,5 +21,6 @@ router.post('/', registerRescueTeam);
 router.get('/', getTeamRegistrations);
 router.post('/upload-doc', upload.single('document'), uploadRegistrationDocument);
 router.patch('/:id/status', updateRegistrationStatus);
+router.delete('/:id', deleteRegistration);
 
 export default router;
