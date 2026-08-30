@@ -13,6 +13,7 @@ import {
   LogOut,
   ChevronUp,
   AlertTriangle,
+  Map,
 } from "lucide-react";
 
 import {
@@ -58,6 +59,11 @@ const menuItems = [
     title: "Disaster Monitor",
     url: "/disaster",
     icon: AlertTriangle,
+  },
+  {
+    title: "Resources Map",
+    url: "/resources",
+    icon: Map,
   },
 ];
 

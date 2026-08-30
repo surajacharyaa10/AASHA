@@ -15,6 +15,7 @@ import analyticsRoutes from './routes/analytics.routes';
 import profileRoutes from './routes/profile.routes';
 import weatherRoutes from './routes/weather.routes';
 import disasterRoutes from './routes/disaster.routes';
+import resourcesRoutes from './routes/resources.routes';
 import { setupSockets } from './sockets';
 import { connectDB } from './config/database';
 import { connectRedis } from './config/redis';
@@ -72,6 +73,7 @@ app.use('/api/analytics', analyticsRoutes);
 app.use('/api/profile', profileRoutes);
 app.use('/api/weather', weatherRoutes);
 app.use('/api/disasters', disasterRoutes);
+app.use('/api/resources', resourcesRoutes);
 
 // Root path handler
 app.get('/', (req, res) => {

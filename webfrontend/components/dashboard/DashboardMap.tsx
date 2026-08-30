@@ -5,7 +5,6 @@ import { Map, Overlay } from "pigeon-maps";
 import { Plus, Minus, LocateFixed } from "lucide-react";
 import type { SosEvent } from "@/app/components/SOSDetails";
 import { SosMarker } from "./SosMarker";
-import { MAP_CENTER } from "./types";
 
 interface DashboardMapProps {
   events: SosEvent[];
@@ -13,8 +12,8 @@ interface DashboardMapProps {
 }
 
 export function DashboardMap({ events, onSelectEvent }: DashboardMapProps) {
-  const [mapCenter, setMapCenter] = useState<[number, number]>([MAP_CENTER.lat, MAP_CENTER.lng]);
-  const [mapZoom, setMapZoom] = useState(11);
+  const [mapCenter, setMapCenter] = useState<[number, number]>([28.3949, 84.1240]);
+  const [mapZoom, setMapZoom] = useState(7);
 
   return (
     <div className="relative min-h-0 flex-1 overflow-hidden rounded-2xl border border-slate-200 bg-slate-100 shadow-xs">
@@ -44,7 +43,7 @@ export function DashboardMap({ events, onSelectEvent }: DashboardMapProps) {
       {/* Region label */}
       <div className="absolute left-4 top-4 rounded-xl border border-slate-200 bg-white/95 px-4 py-2.5 shadow-md backdrop-blur">
         <p className="text-xs font-medium text-slate-500">Live operational map</p>
-        <p className="text-sm font-bold text-slate-900">Khumbu region · 27.98° N, 86.92° E</p>
+        <p className="text-sm font-bold text-slate-900">Nepal · Nationwide Operations</p>
       </div>
 
       {/* Zoom controls */}
@@ -62,7 +61,7 @@ export function DashboardMap({ events, onSelectEvent }: DashboardMapProps) {
           <Minus className="h-4 w-4" />
         </button>
         <button
-          onClick={() => { setMapCenter([MAP_CENTER.lat, MAP_CENTER.lng]); setMapZoom(11); }}
+          onClick={() => { setMapCenter([28.3949, 84.1240]); setMapZoom(7); }}
           className="flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-700 shadow-sm hover:bg-slate-50"
         >
           <LocateFixed className="h-4 w-4" />

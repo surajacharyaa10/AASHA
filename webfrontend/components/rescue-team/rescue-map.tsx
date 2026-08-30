@@ -66,7 +66,7 @@ interface RescueMapProps {
   showControls?: boolean;
 }
 
-const DEFAULT_CENTER: [number, number] = [27.75, 86.65]; // Solukhumbu / Khumbu region
+const DEFAULT_CENTER: [number, number] = [28.3949, 84.1240]; // Nepal center
 export function RescueMap({
   teams,
   selectedTeam: controlledSelectedTeam,
@@ -102,7 +102,7 @@ export function RescueMap({
   }, [teams, filter]);
 
   const [mapCenter, setMapCenter] = useState<[number, number]>(DEFAULT_CENTER);
-  const [mapZoom, setMapZoom] = useState<number>(isExpanded ? 11 : 10);
+  const [mapZoom, setMapZoom] = useState<number>(isExpanded ? 7 : 6);
 
   React.useEffect(() => {
     if (activeSelected) {
@@ -263,7 +263,7 @@ export function RescueMap({
         <div className="absolute left-4 top-4 z-10 flex flex-wrap items-center gap-2">
           <div className="rounded-xl border border-slate-200 bg-white/95 px-3.5 py-2 shadow-md backdrop-blur">
             <p className="text-[10px] font-medium text-slate-500">Coverage Sector</p>
-            <p className="text-xs font-bold text-slate-900">Solukhumbu & Everest</p>
+            <p className="text-xs font-bold text-slate-900">Nationwide Coverage</p>
           </div>
 
           <div className="flex rounded-xl border border-slate-200 bg-white/95 p-1 shadow-md backdrop-blur">
@@ -315,7 +315,7 @@ export function RescueMap({
           <button 
             onClick={() => {
               setMapCenter(DEFAULT_CENTER);
-              setMapZoom(isExpanded ? 11 : 10);
+              setMapZoom(isExpanded ? 7 : 6);
             }}
             className="flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 bg-white/95 text-slate-700 shadow-md backdrop-blur hover:bg-slate-50"
           >

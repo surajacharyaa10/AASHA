@@ -38,7 +38,7 @@ interface GeometryResponse {
 export default function DisasterPage() {
   const [disasters, setDisasters] = useState<DisasterEvent[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<Error | null>(null);
+  const [error, setError] = useState<string | null>(null);
   const [selectedDisaster, setSelectedDisaster] = useState<DisasterEvent | null>(null);
   const [polygon, setPolygon] = useState<[number, number][] | null>(null);
   const [loadingPolygon, setLoadingPolygon] = useState(false);
@@ -216,7 +216,7 @@ export default function DisasterPage() {
               ))}
             </div>
           ) : error ? (
-            <div className="p-4 text-xs text-red-600">{error.message}</div>
+            <div className="p-4 text-xs text-red-600">{error}</div>
           ) : disasters.length === 0 ? (
             <div className="p-6 text-center text-xs text-slate-400">
               <Shield className="mx-auto mb-2 h-8 w-8 text-emerald-400" />
@@ -306,10 +306,10 @@ export default function DisasterPage() {
               return (
                 <GeoJson
                   data={geoJsonData}
-                  style={{
-                    fillColor: selectedDisaster?.alert_level === "Red" || selectedDisaster?.alert_level === "Orange" ? "rgba(220, 38, 38, 0.25)" : "rgba(245, 158, 11, 0.25)",
-                    strokeColor: selectedDisaster?.alert_level === "Red" || selectedDisaster?.alert_level === "Orange" ? "rgba(220, 38, 38, 0.8)" : "rgba(245, 158, 11, 0.8)",
-                    weight: 2,
+                  svgAttributes={{
+                    fill: selectedDisaster?.alert_level === "Red" || selectedDisaster?.alert_level === "Orange" ? "rgba(220, 38, 38, 0.25)" : "rgba(245, 158, 11, 0.25)",
+                    stroke: selectedDisaster?.alert_level === "Red" || selectedDisaster?.alert_level === "Orange" ? "rgba(220, 38, 38, 0.8)" : "rgba(245, 158, 11, 0.8)",
+                    strokeWidth: 2,
                   }}
                 />
               );
