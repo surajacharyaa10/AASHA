@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import { connectDB } from '../config/database';
+import { findNearestDistrict } from '../services/nepalGeo.service';
 
 // GET /api/analytics/summary
 export const getAnalyticsSummary = async (req: Request, res: Response) => {
@@ -104,5 +105,31 @@ export const getAnalyticsSummary = async (req: Request, res: Response) => {
   } catch (err: any) {
     console.error('getAnalyticsSummary error:', err);
     return res.status(500).json({ error: 'Failed to load analytics', details: err.message });
+  }
+};
+
+// GET /api/analytics/sos-by-area
+export const getSosByArea = async (_req: Request, res: Response) => {
+  try {
+    const db = await connectDB();
+    const sosCol = db.collection('sos_events');
+    const events = await sosCol.find({ latitude: { $exists: true }, longitude: { $exists: true } }).toArray();
+
+    const counts: Record<string, number> = {};
+    for (const e of events) {
+      const district = findNearestDistrict(e.latitude, e.longitude);
+      if (district) {
+        counts[district] = (counts[district] || 0) + 1;
+      }
+    }
+
+    const result = Object.entries(counts)
+      .map(([area, count]) => ({ area, count }))
+      .sort((a, b) => b.count - a.count);
+
+    return res.json({ areas: result });
+  } catch (err: any) {
+    console.error('getSosByArea error:', err);
+    return res.status(500).json({ error: 'Failed to load SOS by area', details: err.message });
   }
 };

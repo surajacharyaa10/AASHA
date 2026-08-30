@@ -73,21 +73,27 @@ interface AnalyticsData {
   weekly7d: TrendPoint[];
   recentEvents: RecentEvent[];
   teams: TeamRow[];
+  sosByArea: Array<{ area: string; count: number }>;
 }
 
 export default function AnalyticsPage() {
   const [timeRange, setTimeRange] = useState<TimeRange>("7d");
   const [hoveredPoint, setHoveredPoint] = useState<TrendPoint | null>(null);
+  const [hoveredArea, setHoveredArea] = useState<string | null>(null);
   const [data, setData] = useState<AnalyticsData | null>(null);
   const [loading, setLoading] = useState(true);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
 
   const fetchData = useCallback(async () => {
     try {
-      const res = await fetch(`${BACKEND}/api/analytics/summary`);
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const json = await res.json();
-      setData(json);
+      const [summaryRes, areaRes] = await Promise.all([
+        fetch(`${BACKEND}/api/analytics/summary`),
+        fetch(`${BACKEND}/api/analytics/sos-by-area`),
+      ]);
+      if (!summaryRes.ok) throw new Error(`HTTP ${summaryRes.status}`);
+      const json = await summaryRes.json();
+      const areaJson = areaRes.ok ? await areaRes.json() : { areas: [] };
+      setData({ ...json, sosByArea: areaJson.areas || [] });
       setLastUpdated(new Date());
     } catch (err) {
       console.error("Failed to load analytics:", err);
@@ -125,6 +131,7 @@ export default function AnalyticsPage() {
   };
 
   const s = data?.summary;
+  const areas = data?.sosByArea || [];
 
   return (
     <div className="min-h-screen bg-slate-50 font-sans text-slate-900">
@@ -388,6 +395,69 @@ export default function AnalyticsPage() {
             </div>
           </Card>
         </div>
+
+        {/* ── SOS by District ── */}
+        <Card className="border-slate-200 bg-white p-6 shadow-xs">
+          <CardHeader className="p-0 mb-6 flex flex-row items-center justify-between">
+            <div>
+              <CardTitle className="text-base font-bold text-slate-900">SOS by District</CardTitle>
+              <CardDescription className="text-xs text-slate-500 mt-1">Distress beacons grouped by nearest district centroid</CardDescription>
+            </div>
+            {!loading && data?.sosByArea && (
+              <span className="text-xs font-semibold text-slate-500">
+                {data.sosByArea.reduce((sum, a) => sum + a.count, 0)} total events
+              </span>
+            )}
+          </CardHeader>
+
+          <div className="space-y-3">
+            {loading ? (
+              Array.from({ length: 5 }).map((_, i) => (
+                <div key={i} className="flex items-center gap-3">
+                  <div className="h-3 w-40 animate-pulse rounded bg-slate-100" />
+                  <div className="flex-1 h-6 animate-pulse rounded-md bg-slate-100" />
+                  <div className="h-3 w-8 animate-pulse rounded bg-slate-100" />
+                </div>
+              ))
+            ) : areas.length === 0 ? (
+              <p className="py-8 text-center text-sm text-slate-400">No SOS events with coordinates yet</p>
+            ) : (
+              areas.map((item, i) => {
+                const maxCount = Math.max(...areas.map((a) => a.count));
+                const pct = maxCount > 0 ? (item.count / maxCount) * 100 : 0;
+                const palette = [
+                  "bg-red-500", "bg-blue-600", "bg-emerald-500", "bg-amber-500",
+                  "bg-violet-500", "bg-sky-500", "bg-teal-600",
+                ];
+                const barColor = palette[i % palette.length];
+                const isHov = hoveredArea === item.area;
+                return (
+                  <div
+                    key={item.area}
+                    onMouseEnter={() => setHoveredArea(item.area)}
+                    onMouseLeave={() => setHoveredArea(null)}
+                    className="relative flex items-center gap-3 cursor-pointer group"
+                  >
+                    {isHov && (
+                      <div className="absolute -top-10 left-0 z-20 whitespace-nowrap rounded-lg border border-slate-200 bg-slate-900 px-2.5 py-1 text-[11px] text-white shadow-lg pointer-events-none">
+                        <span className="font-bold">{item.area}</span>
+                        <span className="text-slate-300 ml-1.5">{item.count} SOS</span>
+                      </div>
+                    )}
+                    <span className="w-44 text-xs font-semibold text-slate-700 truncate">{item.area}</span>
+                    <div className="flex-1 h-7 bg-slate-100 rounded-md overflow-hidden">
+                      <div
+                        style={{ width: `${Math.max(pct, 2)}%` }}
+                        className={`h-full rounded-md transition-all duration-300 ${isHov ? "opacity-80" : ""} ${barColor}`}
+                      />
+                    </div>
+                    <span className="w-10 text-xs font-bold text-slate-800 text-right">{item.count}</span>
+                  </div>
+                );
+              })
+            )}
+          </div>
+        </Card>
 
         {/* ── Tables ── */}
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">

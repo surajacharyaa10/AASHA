@@ -357,14 +357,42 @@ export const handleInvestigationEmailAction = async (req: Request, res: Response
 
     await col.updateOne(query, { $set: updateData });
 
-    // If resolved or false alarm, free the team
-    if ((action === 'resolved' || action === 'false_alarm') && investigation.assignedTeamId) {
+    // Free the team when the investigation is concluded — resolved, false alarm, okay, or critical
+    if ((action === 'resolved' || action === 'false_alarm' || action === 'okay' || action === 'critical') && investigation.assignedTeamId) {
       try {
-        await db.collection('rescue_team_registrations').updateOne(
-          { _id: new ObjectId(investigation.assignedTeamId) },
-          { $set: { availability: 'available', assignment: null, updatedAt: new Date() } },
-        );
-      } catch { /* non-critical */ }
+        const teamIdStr = typeof investigation.assignedTeamId === 'string'
+          ? investigation.assignedTeamId
+          : investigation.assignedTeamId.toString();
+
+        if (!ObjectId.isValid(teamIdStr)) {
+          console.error('[investigationEmailAction] Invalid assignedTeamId:', teamIdStr);
+        } else {
+          const teamObjectId = new ObjectId(teamIdStr);
+
+          const updateResult = await db.collection('rescue_team_registrations').updateOne(
+            { _id: teamObjectId },
+            { $set: { availability: 'available', assignment: null, updatedAt: new Date() } }
+          );
+
+          if (updateResult.matchedCount === 0) {
+            console.error('[investigationEmailAction] No team found with _id:', teamIdStr);
+          } else {
+            console.log(`[investigationEmailAction] Freed team ${teamIdStr} back to available`);
+          }
+
+          // Also update rescue_teams collection if it exists
+          const rescueTeamsUpdateResult = await db.collection('rescue_teams').updateOne(
+            { registrationId: teamIdStr },
+            { $set: { availability: 'available', assignment: null, updatedAt: new Date() } }
+          );
+
+          if (rescueTeamsUpdateResult.matchedCount > 0) {
+            console.log(`[investigationEmailAction] Also freed rescue_teams entry for registrationId ${teamIdStr}`);
+          }
+        }
+      } catch (err) {
+        console.error('[investigationEmailAction] Failed to free team:', err);
+      }
     }
 
     const io = (req.app as any).get('io');
