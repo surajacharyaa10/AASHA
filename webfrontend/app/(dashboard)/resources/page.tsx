@@ -4,9 +4,9 @@ import { useState, useEffect, useMemo } from "react";
 import { Map, Overlay } from "pigeon-maps";
 import { Plus, Minus, LocateFixed, RefreshCw, Hospital, Stethoscope, Home, Users, Flag, TreePine, MapPin, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
-
+import BACKEND_URL_CONFIG from "@/lib/config";
 const NEPAL_CENTER = { lat: 28.3949, lng: 84.1240 };
-const BACKEND = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:4000";
+const BACKEND = BACKEND_URL_CONFIG;
 
 interface OsmElement {
   id: number;
