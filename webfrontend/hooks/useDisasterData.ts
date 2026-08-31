@@ -4,9 +4,12 @@ import { useCallback, useEffect, useState } from "react";
 import {
   DisasterEvent,
   Investigation,
+  DynamicFeedHazard,
   DISASTER_API,
   GeometryResponse,
   TimeRange,
+  dynamicFeedHazardToDisasterEvent,
+  DYNAMICFEED_API_URL,
 } from "@/lib/disaster-config";
 
 export function useDisasters(timeRange: TimeRange, eventTypeFilter: string | null) {
@@ -19,11 +22,12 @@ export function useDisasters(timeRange: TimeRange, eventTypeFilter: string | nul
     setError(null);
 
     try {
+      const days = timeRange === 0 ? 1 : timeRange ?? undefined;
       const url = DISASTER_API.latestByCountry(
         "NPL",
         200,
         1,
-        timeRange ?? undefined,
+        days,
         eventTypeFilter ?? undefined
       );
       const res = await fetch(url);
@@ -37,7 +41,17 @@ export function useDisasters(timeRange: TimeRange, eventTypeFilter: string | nul
       }
 
       const data = await res.json();
-      const events = Array.isArray(data?.result) ? data.result : [];
+      let events = Array.isArray(data?.result) ? data.result : [];
+
+      if (timeRange === 0) {
+        const now = new Date();
+        events = events.filter((event: DisasterEvent) => {
+          if (!event.end_date) return true;
+          const endDate = new Date(event.end_date);
+          return endDate > now;
+        });
+      }
+
       setDisasters(events as DisasterEvent[]);
     } catch (err) {
       console.error("Failed to fetch disasters:", err);
@@ -56,6 +70,53 @@ export function useDisasters(timeRange: TimeRange, eventTypeFilter: string | nul
   }, [fetchDisasters]);
 
   return { disasters, loading, error, refresh: fetchDisasters };
+}
+
+export function useDynamicFeedHazards() {
+  const [hazards, setHazards] = useState<DisasterEvent[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const fetchHazards = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+
+    try {
+      const url = `${DYNAMICFEED_API_URL}?lat=${28.3949}&lon=${84.1240}&radius_km=500`;
+      const res = await fetch(url, { next: { revalidate: 60 } });
+
+      if (!res.ok) {
+        throw new Error(`HTTP ${res.status}`);
+      }
+
+      const data = await res.json();
+
+      if (data.hazards && Array.isArray(data.hazards)) {
+        const normalized: DisasterEvent[] = data.hazards.map((hazard: DynamicFeedHazard, index: number) =>
+          dynamicFeedHazardToDisasterEvent(hazard, index)
+        );
+        setHazards(normalized);
+      } else {
+        setHazards([]);
+      }
+    } catch (err) {
+      console.error("Failed to fetch DynamicFeed hazards:", err);
+      setError(
+        err instanceof Error ? err.message : "Failed to fetch live hazards"
+      );
+      setHazards([]);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchHazards();
+    const interval = setInterval(fetchHazards, 300000);
+    return () => clearInterval(interval);
+  }, [fetchHazards]);
+
+  return { hazards, loading, error, refresh: fetchHazards };
 }
 
 export function useInvestigations() {

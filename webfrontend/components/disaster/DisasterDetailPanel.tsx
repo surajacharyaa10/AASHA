@@ -3,7 +3,7 @@
 import { Search, UserPlus, Loader2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
-import { DisasterEvent, Investigation, NearestTeam, EVENT_TYPE_COLORS } from "@/lib/disaster-config";
+import { DisasterEvent, NearestTeam, EVENT_TYPE_COLORS } from "@/lib/disaster-config";
 import { getInvestigationDisplayStatus } from "@/lib/disaster-utils";
 
 interface DisasterDetailPanelProps {

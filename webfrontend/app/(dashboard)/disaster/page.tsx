@@ -22,17 +22,19 @@ import {
   useDisasters,
   useInvestigations,
   useDisasterGeometry,
+  useDynamicFeedHazards,
 } from "@/hooks/useDisasterData";
 
 export default function DisasterPage() {
-  const [timeRange, setTimeRange] = useState<TimeRange>(7);
+  const [timeRange, setTimeRange] = useState<TimeRange>(0);
   const [eventTypeFilter, setEventTypeFilter] = useState<string | null>(null);
   const [showFilters, setShowFilters] = useState(false);
 
-  const { disasters, loading, error, refresh } = useDisasters(
+  const { disasters, loading: disastersLoading, error, refresh } = useDisasters(
     timeRange,
     eventTypeFilter
   );
+  const { hazards, loading: hazardsLoading } = useDynamicFeedHazards();
   const { investigations } = useInvestigations();
   const { polygon, loadingPolygon, fetchPolygon, clearPolygon } = useDisasterGeometry();
 
@@ -48,10 +50,35 @@ export default function DisasterPage() {
   const [investigationStatus, setInvestigationStatus] =
     useState<string | null>(null);
 
+  const loading = disastersLoading || hazardsLoading;
+
+  const allEvents = useMemo(() => {
+    const backendEvents = disasters.map((d) => ({
+      ...d,
+      isDynamicFeed: false as const,
+    }));
+    const liveHazards = hazards.map((h) => ({
+      ...h,
+      isDynamicFeed: true as const,
+    }));
+
+    const combined = [...backendEvents, ...liveHazards];
+    const seen = new Map<string, DisasterEvent>();
+
+    for (const event of combined) {
+      const key = `${event.lat.toFixed(2)}-${event.lng.toFixed(2)}`;
+      if (!seen.has(key)) {
+        seen.set(key, event);
+      }
+    }
+
+    return Array.from(seen.values());
+  }, [disasters, hazards]);
+
   const filteredDisasters = useMemo(() => {
-    if (!eventTypeFilter) return disasters;
-    return disasters.filter((d) => d.event_type === eventTypeFilter);
-  }, [disasters, eventTypeFilter]);
+    if (!eventTypeFilter) return allEvents;
+    return allEvents.filter((d) => d.event_type === eventTypeFilter);
+  }, [allEvents, eventTypeFilter]);
 
   const stats = useMemo(() => {
     const byType: Record<string, number> = {};
@@ -87,8 +114,7 @@ export default function DisasterPage() {
     ) {
       fetchPolygon(disaster.source_event_id);
     } else {
-      // reset polygon state via the hook - we need a way to do this
-      // For now, the hook handles loading a new one
+      clearPolygon();
     }
 
     setInvestigating(false);
@@ -228,7 +254,11 @@ export default function DisasterPage() {
         </div>
       </header>
 
-      <DisasterStats stats={stats} filteredDisasters={filteredDisasters} />
+      <DisasterStats
+        stats={stats}
+        filteredDisasters={filteredDisasters}
+        liveCount={hazards.length}
+      />
 
       <div className="flex min-h-0 flex-1 gap-4 px-6 pb-6">
         <DisasterList
@@ -261,7 +291,6 @@ export default function DisasterPage() {
             currentInvestigationStatus={currentInvestigationStatus}
             currentAssessment={currentAssessment}
             isInvestigationComplete={isInvestigationComplete}
-            investigations={investigations}
             nearestTeam={nearestTeam}
             investigating={investigating}
             onClose={() => {

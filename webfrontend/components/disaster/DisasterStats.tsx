@@ -10,9 +10,10 @@ interface DisasterStatsProps {
     byType: Record<string, number>;
   };
   filteredDisasters: DisasterEvent[];
+  liveCount?: number;
 }
 
-export function DisasterStats({ stats, filteredDisasters }: DisasterStatsProps) {
+export function DisasterStats({ stats, filteredDisasters, liveCount = 0 }: DisasterStatsProps) {
   return (
     <div className="grid grid-cols-1 gap-4 px-6 py-4 md:grid-cols-4">
       <div className="flex items-center gap-4 rounded-2xl border border-slate-200 bg-white px-5 py-4 shadow-sm">
@@ -45,6 +46,23 @@ export function DisasterStats({ stats, filteredDisasters }: DisasterStatsProps) 
           </span>
           <p className="text-xs text-slate-500">
             regional
+          </p>
+        </div>
+      </div>
+
+      <div className="flex items-center gap-4 rounded-2xl border border-slate-200 bg-white px-5 py-4 shadow-sm">
+        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-emerald-50">
+          <Shield className="h-5 w-5 text-emerald-600" />
+        </div>
+        <div className="min-w-0">
+          <p className="text-sm font-medium text-slate-500">
+            Live Hazards
+          </p>
+          <span className="text-2xl font-bold text-slate-900">
+            {liveCount}
+          </span>
+          <p className="text-xs text-slate-500">
+            within 500 km
           </p>
         </div>
       </div>

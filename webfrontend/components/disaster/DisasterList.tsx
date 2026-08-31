@@ -73,10 +73,18 @@ export function DisasterList({
                 }`}
               >
                 <div className="flex items-start justify-between gap-2">
-                  <div className="min-w-0">
-                    <p className="truncate text-xs font-bold text-slate-900">
-                      {disaster.event_name || disaster.event_type}
-                    </p>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2">
+                      <p className="truncate text-xs font-bold text-slate-900">
+                        {disaster.event_name || disaster.event_type}
+                      </p>
+                      {"isDynamicFeed" in disaster && disaster.isDynamicFeed && (
+                        <span className="inline-flex items-center gap-1 rounded-full border border-red-200 bg-red-50 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-red-700">
+                          <span className="h-1 w-1 animate-pulse rounded-full bg-red-500" />
+                          Live
+                        </span>
+                      )}
+                    </div>
                     <p className="mt-0.5 text-[11px] text-slate-500">
                       {getLocationString(
                         disaster.city,

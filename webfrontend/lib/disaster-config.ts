@@ -8,13 +8,14 @@ export const NEPAL_CENTER = { lat: 28.3949, lng: 84.1240 };
 
 export const BACKEND = BACKEND_URL_CONFIG;
 
-export type TimeRange = 7 | 15 | 30 | null;
+export type TimeRange = 0 | 7 | 15 | 30 | null;
 
 export const TIME_RANGES: {
   value: TimeRange;
   label: string;
   description: string;
 }[] = [
+  { value: 0, label: "Current", description: "Currently active events" },
   { value: 7, label: "7D", description: "Last 7 days" },
   { value: 15, label: "15D", description: "Last 15 days" },
   { value: 30, label: "30D", description: "Last 30 days" },
@@ -59,6 +60,17 @@ export interface GeometryResponse {
   }>;
 }
 
+export interface DynamicFeedHazard {
+  category: string;
+  headline: string;
+  severity: string;
+  latitude: number;
+  longitude: number;
+  distance_km: number;
+  time: string;
+  source: string;
+}
+
 export interface DisasterEvent {
   event_id: string;
   event_type: string;
@@ -99,6 +111,108 @@ export interface NearestTeam {
   leadPhone: string;
 }
 
+export function dynamicFeedHazardToDisasterEvent(hazard: DynamicFeedHazard, index: number): DisasterEvent {
+  const severityMap: Record<string, string> = {
+    Red: "Red",
+    Orange: "Orange",
+    Yellow: "Yellow",
+    Green: "Green",
+  };
+
+  const eventTypeMap: Record<string, string> = {
+    Flood: "FL",
+    Earthquake: "EQ",
+    Wildfire: "WF",
+    Cyclone: "TC",
+    "Severe Storm": "SW",
+    Volcano: "VO",
+    Drought: "DR",
+    Tsunami: "TN",
+    Landslide: "LS",
+    "Extreme Temp": "ET",
+  };
+
+  void eventTypeMap;
+
+  const source = hazard.source || "Unknown";
+  const sourceLower = source.toLowerCase();
+  let eventType = "Misc";
+
+  if (hazard.category === "disaster") {
+    if (sourceLower.includes("gdacs")) eventType = "FL";
+    else if (sourceLower.includes("eonet")) eventType = "WF";
+    else if (sourceLower.includes("usgs")) eventType = "EQ";
+    else if (sourceLower.includes("ga")) eventType = "WF";
+  }
+
+  const stableId = `${source}-${hazard.latitude}-${hazard.longitude}-${hazard.time}-${hazard.headline}`;
+  const sourceEventId = `DF-${stableId}`;
+
+  return {
+    event_id: sourceEventId,
+    event_type: eventType,
+    event_name: hazard.headline || `Hazard ${index + 1}`,
+    city: "",
+    state: "",
+    country_code: "NPL",
+    lat: hazard.latitude,
+    lng: hazard.longitude,
+    date: hazard.time,
+    alert_level: severityMap[hazard.severity] || hazard.severity,
+    proximity_severity_level: hazard.severity === "Red" ? "High Risk" : hazard.severity === "Orange" ? "Moderate Risk" : "Low Risk",
+    details: {
+      distance_km: hazard.distance_km,
+      source: hazard.source,
+      category: hazard.category,
+    },
+    end_date: hazard.time,
+    created_time: hazard.time,
+    source_event_id: sourceEventId,
+    isDynamicFeed: true,
+  };
+}
+
+export interface DisasterEvent {
+  event_id: string;
+  event_type: string;
+  event_name: string;
+  city: string;
+  state: string;
+  country_code: string;
+  lat: number;
+  lng: number;
+  date: string;
+  alert_level: string;
+  proximity_severity_level: string;
+  details: Record<string, unknown>;
+  end_date: string;
+  created_time: string;
+  source_event_id: string;
+  isDynamicFeed?: boolean;
+}
+
+export interface Investigation {
+  id: string;
+  disasterEventId: string;
+  disasterName: string;
+  location: string;
+  status: string;
+  assessment?: string;
+  assignedTeamName?: string;
+  lat: number;
+  lng: number;
+}
+
+export interface NearestTeam {
+  teamName: string;
+  district: string;
+  province: string;
+  distanceKm: number;
+  etaMinutes: number;
+  leadName: string;
+  leadPhone: string;
+}
+
 export const DISASTER_API = {
   latestByCountry: (countryCode: string, limit = 200, page = 1, days?: number, eventType?: string) =>
     `${BACKEND}/api/disasters/latest/by-country-code?countryCode=${countryCode}&limit=${limit}&page=${page}${days ? `&days=${days}` : ""}${eventType ? `&eventType=${encodeURIComponent(eventType)}` : ""}`,
@@ -111,3 +225,5 @@ export const DISASTER_API = {
   assignInvestigation: (id: string) =>
     `${BACKEND}/api/investigations/${id}/assign`,
 };
+
+export const DYNAMICFEED_API_URL = "https://dynamicfeed.ai/v1/nearby";
