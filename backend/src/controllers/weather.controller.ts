@@ -30,7 +30,7 @@ export const getCurrentWeather = async (req: Request, res: ExpressResponse) => {
     }
 
     const url = `${WEATHERSTACK_BASE_URL}/current?access_key=${WEATHERSTACK_API_KEY}&query=${encodeURIComponent(query as string)}`;
-    const response = await fetch(url);
+    const response: any = await fetch(url);
 
     // Surface the actual API error (rate limit, invalid key, etc.)
     const data = await response.json().catch(() => ({}));

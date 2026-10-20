@@ -76,7 +76,7 @@ export const getLiveHazards = async (req: Request, res: ExpressResponse) => {
   try {
     const url = `${USGS_URL}&latitude=${NEPAL_CENTER.lat}&longitude=${NEPAL_CENTER.lng}` +
       `&maxradiuskm=${RADIUS_KM}&orderby=time-asc&limit=200`;
-    const response = await fetch(url);
+    const response: any = await fetch(url);
 
     if (!response.ok) {
       return res.status(response.status).json({

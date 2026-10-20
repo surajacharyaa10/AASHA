@@ -117,7 +117,7 @@ async function fetchPage(offset: number): Promise<GeoapifyFeature[]> {
     `&offset=${offset}` +
     `&apiKey=${encodeURIComponent(GEOAPIFY_API_KEY)}`;
 
-  const response = await fetch(url, {
+  const response: any = await fetch(url, {
     headers: { Accept: 'application/json' },
   });
 

@@ -39,7 +39,7 @@ export const getLatestNews = async (req: Request, res: ExpressResponse) => {
 
     const url = `${NEWSDATA_BASE_URL}?apikey=${encodeURIComponent(NEWSDATA_API_KEY)}&country=${encodeURIComponent(COUNTRY)}&category=${encodeURIComponent(categoryParam)}&excludelanguage=${encodeURIComponent(excludeLanguageParam)}`;
 
-    const response = await fetch(url, {
+    const response: any = await fetch(url, {
       headers: { Accept: 'application/json' },
     });
 

@@ -173,7 +173,7 @@ async function fetchEonet(days: number): Promise<NormalizedDisaster[]> {
   url.searchParams.set('status', 'all');
   url.searchParams.set('limit', '100');
 
-  const res = await fetch(url.toString());
+  const res: any = await fetch(url.toString());
   if (!res.ok) throw new Error(`EONET HTTP ${res.status}`);
   const data = await res.json() as EonetResponse;
 
@@ -236,7 +236,7 @@ async function fetchEonet(days: number): Promise<NormalizedDisaster[]> {
 
 async function fetchGdacs(days: number): Promise<NormalizedDisaster[]> {
   const url = 'https://www.gdacs.org/gdacsapi/api/Events/geteventlist/SEARCH?eventlist=TC,DR,FL,VO,EQ&country=Nepal';
-  const res = await fetch(url);
+  const res: any = await fetch(url);
   if (!res.ok) throw new Error(`GDACS HTTP ${res.status}`);
   const data = await res.json() as GdacsResponse;
 
