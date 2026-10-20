@@ -15,7 +15,8 @@
         "NSBluetoothAlwaysUsageDescription": "AASHA uses Bluetooth to relay SOS packets phone-to-phone when there is no internet.",
         "NSBluetoothPeripheralUsageDescription": "AASHA uses Bluetooth to broadcast SOS packets to nearby phones."
       },
-      "usesAppleSignIn": false
+      "usesAppleSignIn": false,
+      "bundleIdentifier": "com.aasha.appfrontend"
     },
     "android": {
       "package": "com.aasha.appfrontend",
@@ -65,7 +66,10 @@
         {
           "bluetoothAlwaysPermission": "AASHA uses Bluetooth to relay SOS packets phone-to-phone when there is no internet.",
           "ios": {
-            "backgroundModes": ["central", "peripheral"]
+            "backgroundModes": [
+              "central",
+              "peripheral"
+            ]
           },
           "android": {
             "advertise": true,
