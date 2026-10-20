@@ -17,6 +17,12 @@ const notification_routes_1 = __importDefault(require("./routes/notification.rou
 const teamRegistration_routes_1 = __importDefault(require("./routes/teamRegistration.routes"));
 const dispatch_routes_1 = __importDefault(require("./routes/dispatch.routes"));
 const analytics_routes_1 = __importDefault(require("./routes/analytics.routes"));
+const profile_routes_1 = __importDefault(require("./routes/profile.routes"));
+const weather_routes_1 = __importDefault(require("./routes/weather.routes"));
+const disaster_routes_1 = __importDefault(require("./routes/disaster.routes"));
+const resources_routes_1 = __importDefault(require("./routes/resources.routes"));
+const news_routes_1 = __importDefault(require("./routes/news.routes"));
+const investigation_routes_1 = __importDefault(require("./routes/investigation.routes"));
 const sockets_1 = require("./sockets");
 const database_1 = require("./config/database");
 const redis_1 = require("./config/redis");
@@ -25,7 +31,7 @@ const app = (0, express_1.default)();
 const httpServer = (0, http_1.createServer)(app);
 const io = new socket_io_1.Server(httpServer, {
     cors: {
-        origin: config_1.config.dashboardOrigin,
+        origin: [config_1.config.dashboardOrigin, 'http://localhost:3001'],
         methods: ['GET', 'POST']
     }
 });
@@ -65,6 +71,12 @@ app.use('/api/notifications', notification_routes_1.default);
 app.use('/api/team-registrations', teamRegistration_routes_1.default);
 app.use('/api/dispatch', dispatch_routes_1.default);
 app.use('/api/analytics', analytics_routes_1.default);
+app.use('/api/profile', profile_routes_1.default);
+app.use('/api/weather', weather_routes_1.default);
+app.use('/api/disasters', disaster_routes_1.default);
+app.use('/api/resources', resources_routes_1.default);
+app.use('/api/news', news_routes_1.default);
+app.use('/api/investigations', investigation_routes_1.default);
 // Root path handler
 app.get('/', (req, res) => {
     res.json({

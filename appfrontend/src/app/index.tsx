@@ -19,7 +19,7 @@ import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Icon } from '@/components/ui/icon';
 import * as Battery from 'expo-battery';
-import { sendSos, cancelSos, subscribeToMesh, RoutingMode } from '@/lib/sosService';
+import { sendSos, cancelSos, subscribeToMesh, RoutingMode, initializeMesh } from '@/lib/sosService';
 import {
   initLocation,
   subscribeToLocation,
@@ -68,6 +68,10 @@ export default function HomeScreen() {
     isGateway: false,
     routingMode: 'idle' as RoutingMode,
     uploadedByHop: null as number | null,
+    isScanning: false,
+    isAdvertising: false,
+    hasPermission: false,
+    isBluetoothOn: false,
   });
 
   const [notifications, setNotifications] = useState<MobileNotification[]>([]);
@@ -77,6 +81,12 @@ export default function HomeScreen() {
   useEffect(() => {
     // Start GPS — requests permission on first call
     initLocation();
+
+    // Initialize BLE mesh transport
+    const initMesh = async () => {
+      await initializeMesh();
+    };
+    initMesh();
 
     // Subscribe to live location updates
     const unsubLoc = subscribeToLocation(setLocation);
@@ -89,6 +99,10 @@ export default function HomeScreen() {
         isGateway: state.isGateway,
         routingMode: state.routingMode,
         uploadedByHop: state.uploadedByHop,
+        isScanning: state.isScanning,
+        isAdvertising: state.isAdvertising,
+        hasPermission: state.hasPermission,
+        isBluetoothOn: state.isBluetoothOn,
       });
       setIsSosTriggered(!!state.activePacket);
     });
@@ -232,6 +246,10 @@ export default function HomeScreen() {
             isGateway={meshState.isGateway}
             routingMode={meshState.routingMode}
             uploadedByHop={meshState.uploadedByHop}
+            isScanning={meshState.isScanning}
+            isAdvertising={meshState.isAdvertising}
+            hasPermission={meshState.hasPermission}
+            isBluetoothOn={meshState.isBluetoothOn}
           />
 
           {/* ── Active SOS Broadcast Status ───────────────── */}

@@ -77,11 +77,17 @@ export default function Dashboard() {
           status: apiEvent.status || e.status,
           assignedTeam: apiEvent.assignedTeamName || e.assignedTeam,
           priorityLabel:
-            apiEvent.status === "assigned" ? "Priority 2 · Unit En Route" :
-            apiEvent.status === "resolved" ? "Resolved · Mission Complete" : e.priorityLabel,
+            apiEvent.status === "resolved" ? "Resolved · Mission Complete" :
+            apiEvent.status === "false_alarm" ? "False Alarm · Cleared" :
+            apiEvent.status === "on_scene" ? "Priority 4 · On Scene" :
+            apiEvent.status === "en_route" ? "Priority 3 · Team En Route" :
+            apiEvent.status === "assigned" ? "Priority 2 · Unit En Route" : e.priorityLabel,
           meta:
-            apiEvent.status === "assigned" ? `${apiEvent.assignedTeamName || "Team"} assigned · Just now` :
-            apiEvent.status === "resolved" ? "Closed & resolved · Just now" : e.meta,
+            apiEvent.status === "resolved" ? "Closed & resolved · Just now" :
+            apiEvent.status === "false_alarm" ? "False alarm · Cleared" :
+            apiEvent.status === "on_scene" ? "Team on scene · Just now" :
+            apiEvent.status === "en_route" ? "Team en route · Just now" :
+            apiEvent.status === "assigned" ? `${apiEvent.assignedTeamName || "Team"} assigned · Just now` : e.meta,
         };
       }));
     });
@@ -91,6 +97,9 @@ export default function Dashboard() {
   const counts = useMemo(() => ({
     pending: events.filter((e) => e.status === "pending").length,
     assigned: events.filter((e) => e.status === "assigned").length,
+    en_route: events.filter((e) => e.status === "en_route").length,
+    on_scene: events.filter((e) => e.status === "on_scene").length,
+    false_alarm: events.filter((e) => e.status === "false_alarm").length,
     resolved: events.filter((e) => e.status === "resolved").length,
   }), [events]);
 
@@ -157,7 +166,7 @@ export default function Dashboard() {
       {/* Stat cards */}
       <div className="grid grid-cols-1 gap-4 px-6 py-4 md:grid-cols-3">
         <StatCard icon={<AlertCircle className="h-5 w-5 text-red-600" />} iconBg="bg-red-50" label="Active SOS" value={events.length} sub={<span className="font-semibold text-red-600">live events</span>} />
-        <StatCard icon={<Users className="h-5 w-5 text-blue-600" />} iconBg="bg-blue-50" label="Teams deployed" value={counts.assigned} sub="active missions" />
+        <StatCard icon={<Users className="h-5 w-5 text-blue-600" />} iconBg="bg-blue-50" label="Teams deployed" value={counts.assigned + counts.en_route + counts.on_scene} sub="active missions" />
         <StatCard icon={<Clock className="h-5 w-5 text-emerald-600" />} iconBg="bg-emerald-50" label="Resolved" value={counts.resolved} sub="missions complete" />
       </div>
 

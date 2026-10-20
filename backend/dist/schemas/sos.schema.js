@@ -11,6 +11,11 @@ exports.createSosSchema = zod_1.z.object({
     hopCount: zod_1.z.number().int().min(0).optional(),
     reportedAt: zod_1.z.string().datetime(),
     note: zod_1.z.string().max(500).optional(),
+    name: zod_1.z.string().optional(),
+    address: zod_1.z.string().optional(),
+    email: zod_1.z.string().optional(),
+    phone: zod_1.z.string().optional(),
+    bloodGroup: zod_1.z.string().optional(),
 }).passthrough();
 exports.assignTeamSchema = zod_1.z.object({
     teamId: zod_1.z.string().uuid()

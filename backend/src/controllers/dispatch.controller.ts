@@ -113,7 +113,7 @@ export const dispatchRescueTeam = async (req: Request, res: Response) => {
       sosLat,
       sosLng,
       sosPlace: place || `${sosLat.toFixed(4)}°N, ${sosLng.toFixed(4)}°E`,
-      callerNote: callerNote || 'Emergency assistance required.',
+      callerNote: callerNote || sosDoc?.note || 'Emergency assistance required.',
       battery: battery ?? sosDoc?.battery ?? 100,
       meshHops: meshHops ?? sosDoc?.hopCount ?? 0,
       receivedTime: receivedTime || new Date().toLocaleTimeString('en-NP', { timeZone: 'Asia/Kathmandu' }),

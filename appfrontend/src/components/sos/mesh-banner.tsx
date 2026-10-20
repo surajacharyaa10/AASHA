@@ -3,28 +3,42 @@ import { View, Text, StyleSheet } from 'react-native';
 import type { RoutingMode } from '@/lib/sosService';
 
 interface MeshStatusBannerProps {
-  peerCount?:    number;
+  peerCount?:     number;
   isRelayActive?: boolean;
   batteryPercent?: number;
-  isGateway?:    boolean;
-  routingMode?:  RoutingMode;
+  isGateway?:     boolean;
+  routingMode?:   RoutingMode;
   uploadedByHop?: number | null;
+  isScanning?:    boolean;
+  isAdvertising?: boolean;
+  hasPermission?: boolean;
+  isBluetoothOn?: boolean;
 }
 
 export function MeshStatusBanner({
-  peerCount     = 0,
-  isRelayActive = false,
-  batteryPercent = 78,
-  isGateway     = false,
-  routingMode   = 'idle',
-  uploadedByHop = null,
+  peerCount       = 0,
+  isRelayActive   = false,
+  batteryPercent  = 78,
+  isGateway       = false,
+  routingMode     = 'idle',
+  uploadedByHop   = null,
+  isScanning      = false,
+  isAdvertising   = false,
+  hasPermission   = false,
+  isBluetoothOn   = false,
 }: MeshStatusBannerProps) {
 
   // ── Connectivity label ────────────────────────────────────────────────────
   let connectLabel: string;
   let connectStyle: object;
 
-  if (routingMode === 'direct') {
+  if (!hasPermission) {
+    connectLabel = '⚠️ Permissions Needed';
+    connectStyle = styles.connectOffline;
+  } else if (!isBluetoothOn) {
+    connectLabel = '🔴 Bluetooth Off';
+    connectStyle = styles.connectOffline;
+  } else if (routingMode === 'direct') {
     connectLabel = '🌐 Direct to Server';
     connectStyle = styles.connectDirect;
   } else if (routingMode === 'ble_mesh') {
@@ -32,7 +46,7 @@ export function MeshStatusBanner({
       connectLabel = `✅ Uploaded via Hop ${uploadedByHop}`;
       connectStyle = styles.connectUploaded;
     } else {
-      connectLabel = `🔵 BLE Hopping…`;
+      connectLabel = `🔵 BLE Mesh Active`;
       connectStyle = styles.connectBle;
     }
   } else {
@@ -41,17 +55,19 @@ export function MeshStatusBanner({
     connectStyle = isGateway ? styles.connectDirect : styles.connectOffline;
   }
 
+  const isMeshActive = isScanning || isAdvertising;
+
   return (
     <View style={styles.container}>
 
       {/* BLE Mesh node status */}
       <View style={styles.item}>
         <View style={styles.dotRow}>
-          <View style={[styles.dot, isRelayActive && styles.dotActive]} />
+          <View style={[styles.dot, isMeshActive && styles.dotActive]} />
           <Text style={styles.label}>MESH PEERS</Text>
         </View>
         <Text style={styles.value}>
-          {isRelayActive ? `${peerCount} Visible` : 'Scanning…'}
+          {isMeshActive ? `${peerCount} Visible` : 'Scanning…'}
         </Text>
       </View>
 
@@ -61,6 +77,16 @@ export function MeshStatusBanner({
       <View style={styles.item}>
         <Text style={styles.label}>ROUTING</Text>
         <Text style={[styles.value, connectStyle]}>{connectLabel}</Text>
+      </View>
+
+      <View style={styles.divider} />
+
+      {/* Scan/Advertise status */}
+      <View style={styles.item}>
+        <Text style={styles.label}>RADIO</Text>
+        <Text style={[styles.value, isMeshActive ? styles.radioActive : styles.radioIdle]}>
+          {isScanning && isAdvertising ? 'Scanning + Advertising' : isScanning ? 'Scanning…' : isAdvertising ? 'Advertising…' : 'Idle'}
+        </Text>
       </View>
 
       <View style={styles.divider} />
@@ -140,6 +166,12 @@ const styles = StyleSheet.create({
   },
   connectOffline: {
     color: '#94A3B8',   // grey — idle offline
+  },
+  radioActive: {
+    color: '#22C55E',
+  },
+  radioIdle: {
+    color: '#94A3B8',
   },
   batteryLow: {
     color: '#F87171',

@@ -1,6 +1,6 @@
 "use client";
 
-import { AlertCircle, UserCheck, CheckCircle2 } from "lucide-react";
+import { AlertCircle, AlertTriangle, UserCheck, CheckCircle2, Truck, MapPin } from "lucide-react";
 import type { SosStatus } from "@/app/components/SOSDetails";
 
 interface SosMarkerProps {
@@ -9,6 +9,16 @@ interface SosMarkerProps {
 }
 
 export function SosMarker({ status, onClick }: SosMarkerProps) {
+  if (status === "false_alarm") {
+    return (
+      <div
+        onClick={onClick}
+        className="cursor-pointer transition-transform hover:scale-110 flex h-9 w-9 items-center justify-center rounded-full bg-amber-500 shadow-lg shadow-amber-500/30"
+      >
+        <AlertTriangle className="h-5 w-5 text-white" strokeWidth={2.5} />
+      </div>
+    );
+  }
   if (status === "resolved") {
     return (
       <div
@@ -16,6 +26,26 @@ export function SosMarker({ status, onClick }: SosMarkerProps) {
         className="cursor-pointer transition-transform hover:scale-110 flex h-9 w-9 items-center justify-center rounded-full bg-emerald-500 shadow-lg shadow-emerald-500/30"
       >
         <CheckCircle2 className="h-5 w-5 text-white" strokeWidth={2.5} />
+      </div>
+    );
+  }
+  if (status === "on_scene") {
+    return (
+      <div
+        onClick={onClick}
+        className="cursor-pointer transition-transform hover:scale-110 flex h-9 w-9 items-center justify-center rounded-full bg-purple-500 shadow-lg shadow-purple-500/30"
+      >
+        <MapPin className="h-5 w-5 text-white" strokeWidth={2.5} />
+      </div>
+    );
+  }
+  if (status === "en_route") {
+    return (
+      <div
+        onClick={onClick}
+        className="cursor-pointer transition-transform hover:scale-110 flex h-9 w-9 items-center justify-center rounded-full bg-orange-500 shadow-lg shadow-orange-500/30"
+      >
+        <Truck className="h-5 w-5 text-white" strokeWidth={2.5} />
       </div>
     );
   }

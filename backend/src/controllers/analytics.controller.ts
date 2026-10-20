@@ -9,10 +9,13 @@ export const getAnalyticsSummary = async (req: Request, res: Response) => {
     const sosCol = db.collection('sos_events');
     const teamCol = db.collection('rescue_team_registrations');
 
-    const [totalSos, pendingSos, assignedSos, resolvedSos] = await Promise.all([
+    const [totalSos, pendingSos, assignedSos, enRouteSos, onSceneSos, falseAlarmSos, resolvedSos] = await Promise.all([
       sosCol.countDocuments({}),
       sosCol.countDocuments({ status: 'pending' }),
       sosCol.countDocuments({ status: 'assigned' }),
+      sosCol.countDocuments({ status: 'en_route' }),
+      sosCol.countDocuments({ status: 'on_scene' }),
+      sosCol.countDocuments({ status: 'false_alarm' }),
       sosCol.countDocuments({ status: 'resolved' }),
     ]);
 
@@ -74,9 +77,9 @@ export const getAnalyticsSummary = async (req: Request, res: Response) => {
 
     return res.json({
       summary: {
-        totalSos, pendingSos, assignedSos, resolvedSos,
+        totalSos, pendingSos, assignedSos, enRouteSos, onSceneSos, falseAlarmSos, resolvedSos,
         totalTeams, approvedTeams, availableTeams, deployedTeams,
-        successRate: totalSos > 0 ? ((resolvedSos / totalSos) * 100).toFixed(1) : '0.0',
+        successRate: totalSos > 0 ? (((resolvedSos + falseAlarmSos) / totalSos) * 100).toFixed(1) : '0.0',
       },
       hourly24h,
       weekly7d,

@@ -172,10 +172,12 @@ export function SOSDispatchPanel({
       )}
 
       {/* Already assigned / dispatched */}
-      {currentStatus === "assigned" && (
+      {(currentStatus === "assigned" || currentStatus === "en_route" || currentStatus === "on_scene") && (
         <div className="space-y-3">
           <div className="rounded-xl border border-blue-200 bg-blue-50/70 p-3">
-            <p className="text-xs font-bold text-blue-900">✅ {assignedTeam} has been dispatched</p>
+            <p className="text-xs font-bold text-blue-900">
+              {currentStatus === "en_route" ? "🚐 En route to scene" : currentStatus === "on_scene" ? "📍 On scene" : "✅ "} {assignedTeam} has been dispatched
+            </p>
             {dispatchResult && (
               <p className="text-[11px] text-blue-700 mt-1">
                 📧 Emails sent to {dispatchResult.emailsSent.length} team member(s)
@@ -184,6 +186,7 @@ export function SOSDispatchPanel({
               </p>
             )}
           </div>
+          {currentStatus !== "on_scene" && (
           <Button
             onClick={handleResolve}
             className="w-full gap-2 bg-emerald-600 font-bold text-white hover:bg-emerald-700 shadow-xs"
@@ -191,6 +194,7 @@ export function SOSDispatchPanel({
             <CheckCircle2 className="h-4 w-4" />
             Mark Mission as Resolved
           </Button>
+          )}
           <Button
             variant="outline"
             render={<Link href="/rescue-team" />}
@@ -198,6 +202,12 @@ export function SOSDispatchPanel({
           >
             View All Rescue Teams
           </Button>
+        </div>
+      )}
+
+      {currentStatus === "false_alarm" && (
+        <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-3 text-center text-xs font-bold text-amber-800">
+          🚨 False alarm — incident cleared. No field response required.
         </div>
       )}
 

@@ -17,6 +17,24 @@ const setupSockets = (io: SocketIOServer) => {
       console.log(`Client ${socket.id} left room ${roomId}`);
     });
 
+    // ─── AASHA BLE Mesh Simulation (Expo Go fallback) ────────────────────────
+    // Relays BLE packets between mobile devices on the same backend connection.
+    // This simulates phone-to-phone BLE when the native expo-ble-kit module
+    // isn't available (Expo Go). In a dev build, real BLE is used instead.
+
+    socket.on('aasha:ble_packet', (data: { packet: any; fromPeerId: string; rssi: number }) => {
+      // Broadcast to all OTHER clients (not sender)
+      socket.broadcast.emit('aasha:ble_packet', data);
+    });
+
+    socket.on('aasha:peer_joined', (data: { peerId: string }) => {
+      socket.broadcast.emit('aasha:peer_joined', data);
+    });
+
+    socket.on('aasha:peer_left', (data: { peerId: string }) => {
+      socket.broadcast.emit('aasha:peer_left', data);
+    });
+
     socket.on('disconnect', () => {
       console.log(`Client disconnected: ${socket.id}`);
     });

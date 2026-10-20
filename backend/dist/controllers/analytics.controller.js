@@ -1,17 +1,21 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.getAnalyticsSummary = void 0;
+exports.getSosByArea = exports.getAnalyticsSummary = void 0;
 const database_1 = require("../config/database");
+const nepalGeo_service_1 = require("../services/nepalGeo.service");
 // GET /api/analytics/summary
 const getAnalyticsSummary = async (req, res) => {
     try {
         const db = await (0, database_1.connectDB)();
         const sosCol = db.collection('sos_events');
         const teamCol = db.collection('rescue_team_registrations');
-        const [totalSos, pendingSos, assignedSos, resolvedSos] = await Promise.all([
+        const [totalSos, pendingSos, assignedSos, enRouteSos, onSceneSos, falseAlarmSos, resolvedSos] = await Promise.all([
             sosCol.countDocuments({}),
             sosCol.countDocuments({ status: 'pending' }),
             sosCol.countDocuments({ status: 'assigned' }),
+            sosCol.countDocuments({ status: 'en_route' }),
+            sosCol.countDocuments({ status: 'on_scene' }),
+            sosCol.countDocuments({ status: 'false_alarm' }),
             sosCol.countDocuments({ status: 'resolved' }),
         ]);
         const [totalTeams, approvedTeams, availableTeams, deployedTeams] = await Promise.all([
@@ -70,9 +74,9 @@ const getAnalyticsSummary = async (req, res) => {
         const teamList = await teamCol.find({ status: 'approved' }).sort({ teamName: 1 }).toArray();
         return res.json({
             summary: {
-                totalSos, pendingSos, assignedSos, resolvedSos,
+                totalSos, pendingSos, assignedSos, enRouteSos, onSceneSos, falseAlarmSos, resolvedSos,
                 totalTeams, approvedTeams, availableTeams, deployedTeams,
-                successRate: totalSos > 0 ? ((resolvedSos / totalSos) * 100).toFixed(1) : '0.0',
+                successRate: totalSos > 0 ? (((resolvedSos + falseAlarmSos) / totalSos) * 100).toFixed(1) : '0.0',
             },
             hourly24h,
             weekly7d,
@@ -105,3 +109,27 @@ const getAnalyticsSummary = async (req, res) => {
     }
 };
 exports.getAnalyticsSummary = getAnalyticsSummary;
+// GET /api/analytics/sos-by-area
+const getSosByArea = async (_req, res) => {
+    try {
+        const db = await (0, database_1.connectDB)();
+        const sosCol = db.collection('sos_events');
+        const events = await sosCol.find({ latitude: { $exists: true }, longitude: { $exists: true } }).toArray();
+        const counts = {};
+        for (const e of events) {
+            const district = (0, nepalGeo_service_1.findNearestDistrict)(e.latitude, e.longitude);
+            if (district) {
+                counts[district] = (counts[district] || 0) + 1;
+            }
+        }
+        const result = Object.entries(counts)
+            .map(([area, count]) => ({ area, count }))
+            .sort((a, b) => b.count - a.count);
+        return res.json({ areas: result });
+    }
+    catch (err) {
+        console.error('getSosByArea error:', err);
+        return res.status(500).json({ error: 'Failed to load SOS by area', details: err.message });
+    }
+};
+exports.getSosByArea = getSosByArea;

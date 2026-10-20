@@ -6,13 +6,15 @@ import {
   StyleSheet,
   ScrollView,
   Switch,
+  Pressable,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BottomTabInset, MaxContentWidth, Spacing } from '@/constants/theme';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Collapsible } from '@/components/ui/collapsible';
-import { subscribeToMesh, PacketLog, RoutingMode } from '@/lib/sosService';
+import { subscribeToMesh, PacketLog, RoutingMode, initializeMesh, shutdownMesh, sendSos } from '@/lib/sosService';
+import { getMeshTransport } from '@/lib/bleMeshTransport';
 
 export default function MeshScreen() {
   const safeAreaInsets = useSafeAreaInsets();
@@ -28,9 +30,19 @@ export default function MeshScreen() {
     isGateway: false,
     routingMode: 'idle' as RoutingMode,
     uploadedByHop: null as number | null,
+    isScanning: false,
+    isAdvertising: false,
+    hasPermission: false,
+    isBluetoothOn: false,
   });
 
   useEffect(() => {
+    // Initialize BLE mesh transport
+    const initMesh = async () => {
+      await initializeMesh();
+    };
+    initMesh();
+
     const unsubscribe = subscribeToMesh((state) => {
       setMeshState({
         peerCount: state.peerCount,
@@ -41,6 +53,10 @@ export default function MeshScreen() {
         isGateway: state.isGateway,
         routingMode: state.routingMode,
         uploadedByHop: state.uploadedByHop,
+        isScanning: state.isScanning,
+        isAdvertising: state.isAdvertising,
+        hasPermission: state.hasPermission,
+        isBluetoothOn: state.isBluetoothOn,
       });
     });
 
@@ -133,8 +149,80 @@ export default function MeshScreen() {
               <Text style={[styles.metricValue, { color: '#059669' }]}>
                 ~0.8%/hr
               </Text>
-              <Text style={styles.metricSub}>Duty-cycle active</Text>
+              <Text style={styles.metricSub}>
+                {meshState.isScanning && meshState.isAdvertising ? 'Scanning + Advertising' :
+                 meshState.isScanning ? 'Scanning…' :
+                 meshState.isAdvertising ? 'Advertising…' : 'Duty-cycle active'}
+              </Text>
             </Card>
+
+            <Card variant="default" style={styles.metricCard}>
+              <Text style={styles.metricLabel}>BLUETOOTH</Text>
+              <Text style={[
+                styles.metricValue,
+                meshState.isBluetoothOn ? { color: '#38BDF8' } : { color: '#F87171' },
+              ]}>
+                {meshState.isBluetoothOn ? '🟢 ON' : '🔴 OFF'}
+              </Text>
+              <Text style={styles.metricSub}>
+                {meshState.hasPermission ? 'Permissions granted' : 'Permissions needed'}
+              </Text>
+            </Card>
+          </View>
+
+          {/* ── Mesh Controls ──────────────────────────────────── */}
+          <View style={styles.section}>
+            <View style={styles.sectionHeaderRow}>
+              <Text style={styles.sectionTitle}>Mesh Controls</Text>
+            </View>
+
+            <View style={styles.controlCard}>
+              <View style={styles.controlRow}>
+                <Text style={styles.controlLabel}>Test SOS (Local)</Text>
+                <Pressable
+                  style={styles.testButton}
+                  onPress={async () => {
+                    const transport = getMeshTransport();
+                    if (transport && meshState.isBluetoothOn) {
+                      await transport.sendSos({
+                        packetId: 'test-' + Date.now(),
+                        originDeviceId: transport.deviceId,
+                        latitude: 27.6869,
+                        longitude: 86.7314,
+                        battery: 85,
+                        hopCount: 0,
+                        reportedAt: new Date().toISOString(),
+                        note: 'Test from mesh screen',
+                      });
+                    }
+                  }}
+                >
+                  <Text style={styles.testButtonText}>Send Test Packet</Text>
+                </Pressable>
+              </View>
+              <View style={styles.controlRow}>
+                <Text style={styles.controlLabel}>Shutdown Mesh</Text>
+                <Pressable
+                  style={[styles.testButton, styles.testButtonDanger]}
+                  onPress={async () => {
+                    await shutdownMesh();
+                  }}
+                >
+                  <Text style={styles.testButtonText}>Stop Mesh</Text>
+                </Pressable>
+              </View>
+              <View style={styles.controlRow}>
+                <Text style={styles.controlLabel}>Re-initialize Mesh</Text>
+                <Pressable
+                  style={styles.testButton}
+                  onPress={async () => {
+                    await initializeMesh();
+                  }}
+                >
+                  <Text style={styles.testButtonText}>Restart Mesh</Text>
+                </Pressable>
+              </View>
+            </View>
           </View>
 
           {/* ── Live Packet Feed ─────────────────────────────── */}
@@ -312,10 +400,6 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
 
-  controlCard: {
-    marginBottom: 16,
-  },
-
   switchRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -469,6 +553,42 @@ const styles = StyleSheet.create({
   bold: {
     fontWeight: '800',
     color: '#FFFFFF',
+  },
+
+  controlCard: {
+    backgroundColor: '#F8FAFC',
+    borderRadius: 12,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    marginBottom: 16,
+  },
+  controlRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E2E8F0',
+  },
+  controlLabel: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#0F172A',
+  },
+  testButton: {
+    backgroundColor: '#2563EB',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 8,
+  },
+  testButtonDanger: {
+    backgroundColor: '#DC2626',
+  },
+  testButtonText: {
+    color: '#FFFFFF',
+    fontWeight: '800',
+    fontSize: 12,
   },
 });
 

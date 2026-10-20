@@ -17,4 +17,5 @@ router.post('/', teamRegistration_controller_1.registerRescueTeam);
 router.get('/', teamRegistration_controller_1.getTeamRegistrations);
 router.post('/upload-doc', upload.single('document'), teamRegistration_controller_1.uploadRegistrationDocument);
 router.patch('/:id/status', teamRegistration_controller_1.updateRegistrationStatus);
+router.delete('/:id', teamRegistration_controller_1.deleteRegistration);
 exports.default = router;

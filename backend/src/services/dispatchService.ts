@@ -225,23 +225,24 @@ function buildDispatchEmailHtml(params: {
           </td>
         </tr>
 
-        <!-- DISTRESS NOTE -->
-        <tr>
-          <td style="padding:0 32px 20px">
-            <table width="100%" cellpadding="0" cellspacing="0" style="background:#fffbeb;border:1.5px solid #fde68a;border-radius:12px">
-              <tr>
-                <td style="padding:14px 20px">
-                  <p style="margin:0 0 8px;font-size:11px;font-weight:800;letter-spacing:1.5px;color:#92400e;text-transform:uppercase">
-                    📢 DISTRESS TRANSMISSION NOTE
-                  </p>
-                  <p style="margin:0;font-size:13px;color:#78350f;font-style:italic;line-height:1.6">
-                    "${params.callerNote || 'Emergency assistance requested. Immediate rescue coordination required.'}"
-                  </p>
-                </td>
-              </tr>
-            </table>
-          </td>
-        </tr>
+         <!-- DISTRESS TRANSMISSION NOTE -->
+         ${params.callerNote && params.callerNote.trim().length > 0 ? `
+         <tr>
+           <td style="padding:0 32px 20px">
+             <table width="100%" cellpadding="0" cellspacing="0" style="background:#fffbeb;border:1.5px solid #fde68a;border-radius:12px">
+               <tr>
+                 <td style="padding:14px 20px">
+                   <p style="margin:0 0 8px;font-size:11px;font-weight:800;letter-spacing:1.5px;color:#92400e;text-transform:uppercase">
+                     📢 DISTRESS TRANSMISSION NOTE
+                   </p>
+                   <p style="margin:0;font-size:13px;color:#78350f;font-style:italic;line-height:1.6">
+                     "${params.callerNote}"
+                   </p>
+                 </td>
+               </tr>
+             </table>
+           </td>
+         </tr>` : ''}
 
         <!-- OPEN IN MAPS / NAVIGATION BUTTONS -->
         <tr>

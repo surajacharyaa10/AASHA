@@ -24,6 +24,11 @@ const createSosEvent = async (req, res) => {
                 battery: eventData.battery ?? null,
                 hopCount: eventData.hopCount ?? 0,
                 note: eventData.note ?? null,
+                name: eventData.name ?? null,
+                address: eventData.address ?? null,
+                email: eventData.email ?? null,
+                phone: eventData.phone ?? null,
+                bloodGroup: eventData.bloodGroup ?? null,
                 status: 'pending',
                 reportedAt: new Date(eventData.reportedAt),
                 receivedAt,
@@ -52,6 +57,11 @@ const createSosEvent = async (req, res) => {
                 battery: eventData.battery,
                 hopCount: eventData.hopCount,
                 note: eventData.note ?? null,
+                name: eventData.name ?? null,
+                address: eventData.address ?? null,
+                email: eventData.email ?? null,
+                phone: eventData.phone ?? null,
+                bloodGroup: eventData.bloodGroup ?? null,
                 status: 'pending',
                 reportedAt: eventData.reportedAt,
                 receivedAt: receivedAt.toISOString()
@@ -95,10 +105,17 @@ const getSosEvents = async (req, res) => {
                 battery: event.battery,
                 hopCount: event.hopCount,
                 note: event.note ?? null,
+                name: event.name ?? null,
+                address: event.address ?? null,
+                email: event.email ?? null,
+                phone: event.phone ?? null,
+                bloodGroup: event.bloodGroup ?? null,
                 status: event.status,
                 reportedAt: event.reportedAt,
                 receivedAt: event.receivedAt,
                 assignedTeamId: event.assignedTeamId ?? null,
+                assignedTeamName: event.assignedTeamName ?? null,
+                assignedTeamLead: event.assignedTeamLead ?? null,
                 resolvedAt: event.resolvedAt ?? null
             })),
             nextCursor: events.length === Number(limit) ? events[events.length - 1]._id.toString() : null
@@ -135,10 +152,17 @@ const getSosEvent = async (req, res) => {
             battery: event.battery,
             hopCount: event.hopCount,
             note: event.note ?? null,
+            name: event.name ?? null,
+            address: event.address ?? null,
+            email: event.email ?? null,
+            phone: event.phone ?? null,
+            bloodGroup: event.bloodGroup ?? null,
             status: event.status,
             reportedAt: event.reportedAt,
             receivedAt: event.receivedAt,
             assignedTeamId: event.assignedTeamId ?? null,
+            assignedTeamName: event.assignedTeamName ?? null,
+            assignedTeamLead: event.assignedTeamLead ?? null,
             resolvedAt: event.resolvedAt ?? null
         });
     }
@@ -155,6 +179,7 @@ const assignTeam = async (req, res) => {
         const { teamId } = req.body;
         const db = await (0, database_1.connectDB)();
         const sosEventsCollection = db.collection('sos_events');
+        const rescueTeamRegistrationsCollection = db.collection('rescue_team_registrations');
         let query = {};
         if (mongodb_1.ObjectId.isValid(id)) {
             query = { _id: new mongodb_1.ObjectId(id) };
@@ -166,19 +191,17 @@ const assignTeam = async (req, res) => {
         if (!event) {
             return res.status(404).json({ error: 'Event not found' });
         }
-        // Try to get team details to send a descriptive update
-        const rescueTeamsCollection = db.collection('rescue_teams');
         let teamName = 'Assigned Team';
         if (mongodb_1.ObjectId.isValid(teamId)) {
-            const team = await rescueTeamsCollection.findOne({ _id: new mongodb_1.ObjectId(teamId) });
+            const team = await rescueTeamRegistrationsCollection.findOne({ _id: new mongodb_1.ObjectId(teamId) });
             if (team) {
-                teamName = team.name;
+                teamName = team.teamName;
             }
         }
         else {
-            const team = await rescueTeamsCollection.findOne({ id: teamId });
+            const team = await rescueTeamRegistrationsCollection.findOne({ _id: new mongodb_1.ObjectId(teamId) });
             if (team) {
-                teamName = team.name;
+                teamName = team.teamName;
             }
         }
         const updatedEvent = await sosEventsCollection.findOneAndUpdate(query, { $set: { status: 'assigned', assignedTeamId: teamId } }, { returnDocument: 'after' });
@@ -186,6 +209,13 @@ const assignTeam = async (req, res) => {
         if (!resultEvent) {
             return res.status(404).json({ error: 'Event not found or failed to update' });
         }
+        await rescueTeamRegistrationsCollection.updateOne({ _id: new mongodb_1.ObjectId(teamId) }, {
+            $set: {
+                availability: 'deployed',
+                assignment: `Mission ${resultEvent.packetId}`,
+                updatedAt: new Date(),
+            },
+        });
         // Emit event socket update
         const io = req.app.get('io');
         if (io) {

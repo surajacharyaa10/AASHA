@@ -60,118 +60,6 @@ export interface GeometryResponse {
   }>;
 }
 
-export interface DynamicFeedHazard {
-  category: string;
-  headline: string;
-  severity: string;
-  latitude: number;
-  longitude: number;
-  distance_km: number;
-  time: string;
-  source: string;
-}
-
-export interface DisasterEvent {
-  event_id: string;
-  event_type: string;
-  event_name: string;
-  city: string;
-  state: string;
-  country_code: string;
-  lat: number;
-  lng: number;
-  date: string;
-  alert_level: string;
-  proximity_severity_level: string;
-  details: Record<string, unknown>;
-  end_date: string;
-  created_time: string;
-  source_event_id: string;
-}
-
-export interface Investigation {
-  id: string;
-  disasterEventId: string;
-  disasterName: string;
-  location: string;
-  status: string;
-  assessment?: string;
-  assignedTeamName?: string;
-  lat: number;
-  lng: number;
-}
-
-export interface NearestTeam {
-  teamName: string;
-  district: string;
-  province: string;
-  distanceKm: number;
-  etaMinutes: number;
-  leadName: string;
-  leadPhone: string;
-}
-
-export function dynamicFeedHazardToDisasterEvent(hazard: DynamicFeedHazard, index: number): DisasterEvent {
-  const severityMap: Record<string, string> = {
-    Red: "Red",
-    Orange: "Orange",
-    Yellow: "Yellow",
-    Green: "Green",
-  };
-
-  const eventTypeMap: Record<string, string> = {
-    Flood: "FL",
-    Earthquake: "EQ",
-    Wildfire: "WF",
-    Cyclone: "TC",
-    "Severe Storm": "SW",
-    Volcano: "VO",
-    Drought: "DR",
-    Tsunami: "TN",
-    Landslide: "LS",
-    "Extreme Temp": "ET",
-  };
-
-  void eventTypeMap;
-
-  const source = hazard.source || "Unknown";
-  const sourceLower = source.toLowerCase();
-  let eventType = "Misc";
-
-  if (hazard.category === "disaster") {
-    if (sourceLower.includes("gdacs")) eventType = "FL";
-    else if (sourceLower.includes("eonet")) eventType = "WF";
-    else if (sourceLower.includes("usgs")) eventType = "EQ";
-    else if (sourceLower.includes("ga")) eventType = "WF";
-  }
-
-  const stableId = `${source}-${hazard.latitude}-${hazard.longitude}-${hazard.time}-${hazard.headline}`;
-  const sourceEventId = `DF-${stableId}`;
-
-  return {
-    event_id: sourceEventId,
-    event_type: eventType,
-    event_name: hazard.headline || `Hazard ${index + 1}`,
-    city: "",
-    state: "",
-    country_code: "NPL",
-    lat: hazard.latitude,
-    lng: hazard.longitude,
-    date: hazard.time,
-    alert_level: severityMap[hazard.severity] || hazard.severity,
-    proximity_severity_level: hazard.severity === "Red" ? "High Risk" : hazard.severity === "Orange" ? "Moderate Risk" : "Low Risk",
-    details: {
-      distance_km: hazard.distance_km,
-      source: hazard.source,
-      category: hazard.category,
-    },
-    end_date: hazard.time,
-    created_time: hazard.time,
-    source_event_id: sourceEventId,
-    isDynamicFeed: true,
-  };
-}
-
 export interface DisasterEvent {
   event_id: string;
   event_type: string;
@@ -213,6 +101,28 @@ export interface NearestTeam {
   leadPhone: string;
 }
 
+export interface Investigation {
+  id: string;
+  disasterEventId: string;
+  disasterName: string;
+  location: string;
+  status: string;
+  assessment?: string;
+  assignedTeamName?: string;
+  lat: number;
+  lng: number;
+}
+
+export interface NearestTeam {
+  teamName: string;
+  district: string;
+  province: string;
+  distanceKm: number;
+  etaMinutes: number;
+  leadName: string;
+  leadPhone: string;
+}
+
 export const DISASTER_API = {
   latestByCountry: (countryCode: string, limit = 200, page = 1, days?: number, eventType?: string) =>
     `${BACKEND}/api/disasters/latest/by-country-code?countryCode=${countryCode}&limit=${limit}&page=${page}${days ? `&days=${days}` : ""}${eventType ? `&eventType=${encodeURIComponent(eventType)}` : ""}`,
@@ -226,4 +136,7 @@ export const DISASTER_API = {
     `${BACKEND}/api/investigations/${id}/assign`,
 };
 
-export const DYNAMICFEED_API_URL = "https://dynamicfeed.ai/v1/nearby";
+// Live hazards are proxied through our backend (USGS earthquake feed) so the
+// browser never calls a third-party URL directly — avoids CORS and rate-limit
+// failures that broke the old DynamicFeed call.
+export const LIVE_HAZARDS_API = `${BACKEND}/api/disasters/live-hazards`;

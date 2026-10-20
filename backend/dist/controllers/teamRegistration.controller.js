@@ -3,7 +3,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.updateRegistrationStatus = exports.uploadRegistrationDocument = exports.getTeamRegistrations = exports.registerRescueTeam = void 0;
+exports.updateRegistrationStatus = exports.deleteRegistration = exports.uploadRegistrationDocument = exports.getTeamRegistrations = exports.registerRescueTeam = void 0;
 const database_1 = require("../config/database");
 const mongodb_1 = require("mongodb");
 // 1. Submit new Rescue Team Registration Application
@@ -125,6 +125,30 @@ const uploadRegistrationDocument = async (req, res) => {
     }
 };
 exports.uploadRegistrationDocument = uploadRegistrationDocument;
+// 5. Delete a team registration (and any provisioned rescue team)
+const deleteRegistration = async (req, res) => {
+    try {
+        const { id } = req.params;
+        if (!mongodb_1.ObjectId.isValid(id)) {
+            return res.status(400).json({ error: 'Invalid registration ID' });
+        }
+        const db = await (0, database_1.connectDB)();
+        const registrationsCollection = db.collection('rescue_team_registrations');
+        const rescueTeamsCollection = db.collection('rescue_teams');
+        const result = await registrationsCollection.deleteOne({ _id: new mongodb_1.ObjectId(id) });
+        if (result.deletedCount === 0) {
+            return res.status(404).json({ error: 'Team registration not found' });
+        }
+        // Also remove the provisioned active team if it exists
+        await rescueTeamsCollection.deleteOne({ registrationId: id });
+        return res.json({ success: true, message: 'Team deleted successfully' });
+    }
+    catch (error) {
+        console.error('Error deleting registration:', error);
+        return res.status(500).json({ error: 'Failed to delete team' });
+    }
+};
+exports.deleteRegistration = deleteRegistration;
 // 4. Update registration status (Approve / Reject)
 const updateRegistrationStatus = async (req, res) => {
     try {

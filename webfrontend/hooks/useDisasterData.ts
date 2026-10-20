@@ -4,12 +4,10 @@ import { useCallback, useEffect, useState } from "react";
 import {
   DisasterEvent,
   Investigation,
-  DynamicFeedHazard,
   DISASTER_API,
   GeometryResponse,
   TimeRange,
-  dynamicFeedHazardToDisasterEvent,
-  DYNAMICFEED_API_URL,
+  LIVE_HAZARDS_API,
 } from "@/lib/disaster-config";
 
 export function useDisasters(timeRange: TimeRange, eventTypeFilter: string | null) {
@@ -72,6 +70,60 @@ export function useDisasters(timeRange: TimeRange, eventTypeFilter: string | nul
   return { disasters, loading, error, refresh: fetchDisasters };
 }
 
+// Normalize a USGS earthquake feed hazard into the shared DisasterEvent shape.
+// The feed is proxied through our backend (/api/disasters/live-hazards) so the
+// browser never calls a third-party URL directly — avoids CORS and rate-limit
+// failures that broke the old DynamicFeed call.
+function usgsHazardToDisasterEvent(hazard: any, index: number): DisasterEvent {
+  const eventTypeMap: Record<string, string> = {
+    earthquake: "EQ",
+    landslide: "LS",
+    explosion: "EX",
+    icequake: "EQ",
+    volcanic: "VO",
+  };
+  const eventType =
+    eventTypeMap[(hazard?.type || "").toLowerCase()] || "EQ";
+
+  const severityMap: Record<string, string> = {
+    Red: "Red",
+    Orange: "Orange",
+    Yellow: "Yellow",
+    Green: "Green",
+  };
+
+  return {
+    event_id: hazard?.id || `usgs-${index}`,
+    event_type: eventType,
+    event_name:
+      hazard?.headline ||
+      `M${hazard?.magnitude ?? "?"} ${hazard?.type || "event"}`,
+    city: "",
+    state: "",
+    country_code: "NPL",
+    lat: hazard?.latitude,
+    lng: hazard?.longitude,
+    date: hazard?.time,
+    alert_level: severityMap[hazard?.severity] || hazard?.severity,
+    proximity_severity_level:
+      hazard?.severity === "Red"
+        ? "High Risk"
+        : hazard?.severity === "Orange"
+        ? "Moderate Risk"
+        : "Low Risk",
+    details: {
+      distance_km: hazard?.distance_km,
+      source: hazard?.source,
+      type: hazard?.type,
+      magnitude: hazard?.magnitude,
+    },
+    end_date: hazard?.time,
+    created_time: hazard?.time,
+    source_event_id: hazard?.id || `usgs-${index}`,
+    isDynamicFeed: true,
+  };
+}
+
 export function useDynamicFeedHazards() {
   const [hazards, setHazards] = useState<DisasterEvent[]>([]);
   const [loading, setLoading] = useState(false);
@@ -82,25 +134,21 @@ export function useDynamicFeedHazards() {
     setError(null);
 
     try {
-      const url = `${DYNAMICFEED_API_URL}?lat=${28.3949}&lon=${84.1240}&radius_km=500`;
-      const res = await fetch(url, { next: { revalidate: 60 } });
+      const res = await fetch(LIVE_HAZARDS_API);
 
       if (!res.ok) {
         throw new Error(`HTTP ${res.status}`);
       }
 
       const data = await res.json();
+      const raw: any[] = Array.isArray(data?.hazards) ? data.hazards : [];
 
-      if (data.hazards && Array.isArray(data.hazards)) {
-        const normalized: DisasterEvent[] = data.hazards.map((hazard: DynamicFeedHazard, index: number) =>
-          dynamicFeedHazardToDisasterEvent(hazard, index)
-        );
-        setHazards(normalized);
-      } else {
-        setHazards([]);
-      }
+      const normalized: DisasterEvent[] = raw.map((hazard, index) =>
+        usgsHazardToDisasterEvent(hazard, index)
+      );
+      setHazards(normalized);
     } catch (err) {
-      console.error("Failed to fetch DynamicFeed hazards:", err);
+      console.error("Failed to fetch live hazards:", err);
       setError(
         err instanceof Error ? err.message : "Failed to fetch live hazards"
       );

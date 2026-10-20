@@ -7,6 +7,7 @@ exports.findNearestAvailableTeam = findNearestAvailableTeam;
 exports.sendDispatchEmails = sendDispatchEmails;
 const nodemailer_1 = __importDefault(require("nodemailer"));
 const database_1 = require("../config/database");
+const actionToken_1 = require("../lib/actionToken");
 // ── Haversine distance in km ──────────────────────────────────────────────
 function haversineKm(lat1, lng1, lat2, lng2) {
     const R = 6371;
@@ -74,8 +75,24 @@ async function findNearestAvailableTeam(sosLat, sosLng) {
 }
 // ── Build the mission briefing HTML email ────────────────────────────────
 function buildDispatchEmailHtml(params) {
-    const mapsUrl = `https://www.google.com/maps?q=${params.sosLat},${params.sosLng}`;
-    const capList = params.team.capabilities.map(c => `<li style="margin:2px 0">${c}</li>`).join('');
+    // Navigation URLs — open turn-by-turn directions immediately on both Android & iOS
+    const googleMapsNavUrl = `https://www.google.com/maps/dir/?api=1&destination=${params.sosLat},${params.sosLng}&travelmode=driving`;
+    const appleMapsNavUrl = `http://maps.apple.com/?daddr=${params.sosLat},${params.sosLng}&dirflg=d`;
+    // Plain pin URL for desktop clients
+    const googleMapsPinUrl = `https://www.google.com/maps?q=${params.sosLat},${params.sosLng}`;
+    // Signed one-click action URLs embedded in the email
+    const backendUrl = process.env.BACKEND_PUBLIC_URL || `http://${process.env.SMTP_HOST ? '192.168.18.39' : 'localhost'}:4000`;
+    function actionUrl(action) {
+        const token = (0, actionToken_1.generateActionToken)(params.sosId, action);
+        return `${backendUrl}/api/sos/action?packetId=${encodeURIComponent(params.sosId)}&action=${action}&token=${token}`;
+    }
+    const urlResolved = actionUrl('resolved');
+    const urlEnRoute = actionUrl('en_route');
+    const urlOnScene = actionUrl('on_scene');
+    const urlFalseAlarm = actionUrl('false_alarm');
+    const capList = (params.team.capabilities && params.team.capabilities.length > 0)
+        ? params.team.capabilities.map((c) => `<li>${c}</li>`).join('')
+        : '<li style="color:#9ca3af;font-style:italic">None specified</li>';
     return `<!DOCTYPE html>
 <html>
 <head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"></head>
@@ -165,35 +182,76 @@ function buildDispatchEmailHtml(params) {
           </td>
         </tr>
 
-        <!-- DISTRESS NOTE -->
+         <!-- DISTRESS TRANSMISSION NOTE -->
+         ${params.callerNote && params.callerNote.trim().length > 0 ? `
+         <tr>
+           <td style="padding:0 32px 20px">
+             <table width="100%" cellpadding="0" cellspacing="0" style="background:#fffbeb;border:1.5px solid #fde68a;border-radius:12px">
+               <tr>
+                 <td style="padding:14px 20px">
+                   <p style="margin:0 0 8px;font-size:11px;font-weight:800;letter-spacing:1.5px;color:#92400e;text-transform:uppercase">
+                     📢 DISTRESS TRANSMISSION NOTE
+                   </p>
+                   <p style="margin:0;font-size:13px;color:#78350f;font-style:italic;line-height:1.6">
+                     "${params.callerNote}"
+                   </p>
+                 </td>
+               </tr>
+             </table>
+           </td>
+         </tr>` : ''}
+
+        <!-- OPEN IN MAPS / NAVIGATION BUTTONS -->
+        <tr>
+          <td style="padding:0 32px 20px;text-align:center">
+            <p style="margin:0 0 12px;font-size:11px;font-weight:800;letter-spacing:1.5px;color:#dc2626;text-transform:uppercase">🧭 Tap to start navigation</p>
+            <!-- Google Maps Navigation -->
+            <a href="${googleMapsNavUrl}" target="_blank"
+               style="display:inline-block;background:#1d4ed8;color:#ffffff;text-decoration:none;
+                      font-size:14px;font-weight:800;padding:14px 28px;border-radius:10px;
+                      letter-spacing:0.3px;box-shadow:0 4px 12px rgba(29,78,216,0.3);margin:4px">
+              📍 Navigate with Google Maps →
+            </a>
+            <!-- Apple Maps Navigation (iPhone) -->
+            <a href="${appleMapsNavUrl}" target="_blank"
+               style="display:inline-block;background:#0f172a;color:#ffffff;text-decoration:none;
+                      font-size:14px;font-weight:800;padding:14px 28px;border-radius:10px;
+                      letter-spacing:0.3px;box-shadow:0 4px 12px rgba(15,23,42,0.3);margin:4px">
+               Apple Maps →
+            </a>
+            <p style="margin:10px 0 0;font-size:11px;color:#94a3b8">
+              Coordinates: ${params.sosLat.toFixed(6)}°N, ${params.sosLng.toFixed(6)}°E
+              · <a href="${googleMapsPinUrl}" target="_blank" style="color:#3b82f6">View pin</a>
+            </p>
+          </td>
+        </tr>
+
+        <!-- VICTIM PROFILE -->
+        ${(params.victimName || params.victimPhone || params.victimBloodGroup || params.victimAddress) ? `
         <tr>
           <td style="padding:0 32px 20px">
-            <table width="100%" cellpadding="0" cellspacing="0" style="background:#fffbeb;border:1.5px solid #fde68a;border-radius:12px">
+            <table width="100%" cellpadding="0" cellspacing="0" style="background:#fdf4ff;border:1.5px solid #e9d5ff;border-radius:12px">
               <tr>
-                <td style="padding:14px 20px">
-                  <p style="margin:0 0 8px;font-size:11px;font-weight:800;letter-spacing:1.5px;color:#92400e;text-transform:uppercase">
-                    📢 DISTRESS TRANSMISSION NOTE
+                <td style="padding:16px 20px;border-bottom:1px solid #e9d5ff">
+                  <p style="margin:0;font-size:11px;font-weight:800;letter-spacing:1.5px;color:#7e22ce;text-transform:uppercase">
+                    🩺 VICTIM PROFILE (from SOS beacon)
                   </p>
-                  <p style="margin:0;font-size:13px;color:#78350f;font-style:italic;line-height:1.6">
-                    "${params.callerNote || 'Emergency assistance requested. Immediate rescue coordination required.'}"
-                  </p>
+                </td>
+              </tr>
+              <tr>
+                <td style="padding:16px 20px">
+                  <table width="100%" cellpadding="4" cellspacing="0">
+                    ${params.victimName ? `<tr><td style="font-size:12px;font-weight:700;color:#6b7280;width:140px">Full Name</td><td style="font-size:13px;font-weight:800;color:#1e293b">${params.victimName}</td></tr>` : ''}
+                    ${params.victimPhone ? `<tr><td style="font-size:12px;font-weight:700;color:#6b7280">Phone</td><td style="font-size:13px;font-weight:700;color:#1e293b">${params.victimPhone}</td></tr>` : ''}
+                    ${params.victimEmail ? `<tr><td style="font-size:12px;font-weight:700;color:#6b7280">Email</td><td style="font-size:13px;font-weight:700;color:#1e293b">${params.victimEmail}</td></tr>` : ''}
+                    ${params.victimAddress ? `<tr><td style="font-size:12px;font-weight:700;color:#6b7280">Address</td><td style="font-size:13px;font-weight:700;color:#1e293b">${params.victimAddress}</td></tr>` : ''}
+                    ${params.victimBloodGroup ? `<tr><td style="font-size:12px;font-weight:700;color:#6b7280">Blood Group</td><td style="font-size:14px;font-weight:900;color:#dc2626">${params.victimBloodGroup}</td></tr>` : ''}
+                  </table>
                 </td>
               </tr>
             </table>
           </td>
-        </tr>
-
-        <!-- OPEN IN MAPS BUTTON -->
-        <tr>
-          <td style="padding:0 32px 20px;text-align:center">
-            <a href="${mapsUrl}" target="_blank"
-               style="display:inline-block;background:#1d4ed8;color:#ffffff;text-decoration:none;
-                      font-size:14px;font-weight:800;padding:14px 32px;border-radius:10px;
-                      letter-spacing:0.3px;box-shadow:0 4px 12px rgba(29,78,216,0.3)">
-              🗺️ Open SOS Location in Google Maps →
-            </a>
-          </td>
-        </tr>
+        </tr>` : ''}
 
         <!-- TEAM INFO -->
         <tr>
@@ -230,6 +288,73 @@ function buildDispatchEmailHtml(params) {
                   </table>
                 </td>
               </tr>
+            
+            </table>
+          </td>
+        </tr>
+
+        <!-- ── STATUS UPDATE ACTIONS ── -->
+        <tr>
+          <td style="padding:0 32px 24px">
+            <table width="100%" cellpadding="0" cellspacing="0"
+                   style="background:#0f172a;border-radius:14px;overflow:hidden">
+              <tr>
+                <td style="padding:18px 24px;border-bottom:1px solid #1e293b">
+                  <p style="margin:0;font-size:11px;font-weight:800;letter-spacing:1.5px;
+                             color:#94a3b8;text-transform:uppercase">
+                    📋 Update Mission Status — tap a button to confirm
+                  </p>
+                </td>
+              </tr>
+              <tr>
+                <td style="padding:20px 24px">
+                  <table cellpadding="0" cellspacing="0">
+                    <tr>
+                      <!-- ✅ Resolved -->
+                      <td style="padding:0 6px 8px 0">
+                        <a href="${urlResolved}" target="_blank"
+                           style="display:inline-block;background:#16a34a;color:#fff;text-decoration:none;
+                                  font-size:13px;font-weight:800;padding:11px 18px;border-radius:9px;
+                                  letter-spacing:0.2px">
+                          ✅ Mission Resolved
+                        </a>
+                      </td>
+                      <!-- 🚐 En Route -->
+                      <td style="padding:0 6px 8px 0">
+                        <a href="${urlEnRoute}" target="_blank"
+                           style="display:inline-block;background:#2563eb;color:#fff;text-decoration:none;
+                                  font-size:13px;font-weight:800;padding:11px 18px;border-radius:9px;
+                                  letter-spacing:0.2px">
+                          🚐 Team En Route
+                        </a>
+                      </td>
+                      <!-- 📍 On Scene -->
+                      <td style="padding:0 6px 8px 0">
+                        <a href="${urlOnScene}" target="_blank"
+                           style="display:inline-block;background:#7c3aed;color:#fff;text-decoration:none;
+                                  font-size:13px;font-weight:800;padding:11px 18px;border-radius:9px;
+                                  letter-spacing:0.2px">
+                          📍 On Scene
+                        </a>
+                      </td>
+                      <!-- ⚠️ False Alarm -->
+                      <td style="padding:0 0 8px 0">
+                        <a href="${urlFalseAlarm}" target="_blank"
+                           style="display:inline-block;background:#92400e;color:#fff;text-decoration:none;
+                                  font-size:13px;font-weight:800;padding:11px 18px;border-radius:9px;
+                                  letter-spacing:0.2px">
+                          ⚠️ False Alarm
+                        </a>
+                      </td>
+                    </tr>
+                  </table>
+                  <p style="margin:10px 0 0;font-size:11px;color:#64748b;line-height:1.5">
+                    Each link is unique to this dispatch order and will update the
+                    command dashboard in real time. Links remain valid until the
+                    mission is closed.
+                  </p>
+                </td>
+              </tr>
             </table>
           </td>
         </tr>
@@ -254,13 +379,20 @@ function buildDispatchEmailHtml(params) {
 }
 // ── Create Nodemailer transporter ─────────────────────────────────────────
 function createTransporter() {
+    // Gmail App Passwords are displayed with spaces (e.g. "abcd efgh ijkl mnop")
+    // but must be passed WITHOUT spaces to nodemailer.
+    const rawPass = process.env.SMTP_PASS || '';
+    const cleanPass = rawPass.replace(/\s+/g, '');
     return nodemailer_1.default.createTransport({
         host: process.env.SMTP_HOST || 'smtp.gmail.com',
         port: Number(process.env.SMTP_PORT) || 587,
-        secure: false,
+        secure: false, // STARTTLS on port 587
         auth: {
             user: process.env.SMTP_USER,
-            pass: process.env.SMTP_PASS,
+            pass: cleanPass,
+        },
+        tls: {
+            rejectUnauthorized: false, // allow self-signed in dev
         },
     });
 }

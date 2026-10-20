@@ -1,6 +1,16 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import NetInfo from '@react-native-community/netinfo';
 import { Platform } from 'react-native';
+import {
+  BleMeshTransport,
+  type MeshEvent,
+  type MeshState,
+  type SosPayload as MeshSosPayload,
+  getMeshTransport,
+  resetMeshTransport,
+  initializeMesh as meshInitializeTransport,
+  shutdownMesh as meshShutdownTransport,
+} from './bleMeshTransport';
 
 // ─── Interfaces ──────────────────────────────────────────────────────────────
 
@@ -36,25 +46,20 @@ export type RoutingMode = 'idle' | 'direct' | 'ble_mesh';
 
 const QUEUE_KEY = 'sosQueue';
 
-/**
- * IMPORTANT: Use your machine's local IP (not localhost) so real devices can reach the backend.
- * `localhost` only works in iOS Simulator. Android Emulator uses `10.0.2.2`.
- * Replace the IP below with your Mac's LAN IP if testing on a physical device.
- */
 import BACKEND_URL from '@/lib/config';
 
 const BACKEND = BACKEND_URL;
 
-
 // ─── Module-level state ──────────────────────────────────────────────────────
 
+let meshTransport: BleMeshTransport | null = null;
 let activePacket: SosPayload | null = null;
 let currentHops = 0;
-let simulationInterval: ReturnType<typeof setInterval> | null = null;
 const packetLogs: PacketLog[] = [];
 let listeners: ((state: any) => void)[] = [];
 let peerCount = 0;
 let hasInternetAccess = false;
+let meshInitialized = false;
 
 /** Routing mode for the current (or last) SOS. */
 let routingMode: RoutingMode = 'idle';
@@ -67,14 +72,20 @@ let uploadedByHop: number | null = null;
 
 // ─── Internet monitoring ─────────────────────────────────────────────────────
 
-// Keep hasInternetAccess updated in real time.
-// When internet comes back, flush any queued packets immediately.
-NetInfo.addEventListener(state => {
-  hasInternetAccess = !!state.isConnected;
-  if (hasInternetAccess) {
-    flushQueue();
-  }
-});
+let netInfoUnsubscribe: (() => void) | null = null;
+
+function initNetInfo() {
+  if (netInfoUnsubscribe) return;
+
+  netInfoUnsubscribe = NetInfo.addEventListener(state => {
+    const wasOffline = !hasInternetAccess;
+    hasInternetAccess = !!state.isConnected && !!state.isInternetReachable;
+
+    if (wasOffline && hasInternetAccess) {
+      flushQueue();
+    }
+  });
+}
 
 // ─── Offline queue helpers ───────────────────────────────────────────────────
 
@@ -118,9 +129,9 @@ export const flushQueue = async () => {
         if (activePacket && activePacket.packetId === p.packetId) {
           if (uploadedByHop === null) {
             uploadedByHop = 0; // This device finally uploaded it
-            routingMode = 'direct'; // Or keep it ble_mesh but show uploaded by hop 0
+            routingMode = 'direct';
             _pushLog(packetLogs, {
-              id: activePacket.packetId.substring(0, 12) + '...', // We don't have shortId here easily, but this works
+              id: activePacket.packetId.substring(0, 12) + '...',
               origin: 'This Device',
               seenFrom: 'Internet (Recovered Connection)',
               rssi: 'Wi-Fi / Cellular',
@@ -138,7 +149,81 @@ export const flushQueue = async () => {
   if (stateChanged) notifyListeners();
 };
 
-// ─── State subscription ───────────────────────────────────────────────────────
+// ─── Mesh Event Handler ──────────────────────────────────────────────────────
+
+function meshEventHandler(event: MeshEvent): void {
+  switch (event.type) {
+    case 'peer_found':
+      peerCount = (meshTransport?.state.peerCount ?? 0) + 1;
+      break;
+    case 'peer_lost':
+      peerCount = Math.max(0, (meshTransport?.state.peerCount ?? 1) - 1);
+      break;
+    case 'packet_received': {
+      // Incoming relayed packet from another phone
+      const { packet, fromPeerId, rssi, hopCount } = event;
+      _pushLog(packetLogs, {
+        id: packet.packetId.slice(0, 8) + '...',
+        origin: `Device ${packet.originDeviceId.slice(0, 4)}`,
+        seenFrom: `Peer ${fromPeerId.slice(0, 8)} (${rssi} dBm)`,
+        rssi: `${rssi} dBm`,
+        status: 'Relayed',
+      });
+
+      // If this is our own packet being relayed back, update hop count
+      if (activePacket && activePacket.packetId === packet.packetId) {
+        currentHops = hopCount;
+        uploadedByHop = hopCount; // mark that it reached the mesh
+        routingMode = 'ble_mesh';
+      }
+      // If we have internet, try to upload immediately
+      if (hasInternetAccess && meshTransport) {
+        meshTransport.flushToBackend(packet, BACKEND);
+      }
+      break;
+    }
+    case 'packet_relayed': {
+      const { packet, toPeerId, hopCount } = event;
+      _pushLog(packetLogs, {
+        id: packet.packetId.slice(0, 8) + '...',
+        origin: 'This Device (Owner SOS)',
+        seenFrom: `Peer ${toPeerId.slice(0, 8)} → Relayed`,
+        rssi: 'BLE',
+        status: 'Relayed',
+      });
+      if (activePacket && activePacket.packetId === packet.packetId) {
+        currentHops = hopCount;
+      }
+      break;
+    }
+    case 'packet_uploaded': {
+      const { packet, hopCount } = event;
+      if (activePacket && activePacket.packetId === packet.packetId) {
+        if (uploadedByHop === null) {
+          uploadedByHop = hopCount;
+          _pushLog(packetLogs, {
+            id: packet.packetId.slice(0, 8) + '...',
+            origin: 'This Device',
+            seenFrom: `Internet (via Hop ${hopCount})`,
+            rssi: 'Wi-Fi / Cellular',
+            status: 'Uploaded',
+          });
+          routingMode = hopCount === 0 ? 'direct' : 'ble_mesh';
+        }
+      }
+      break;
+    }
+    case 'state_changed':
+      // Mesh state updated, will be reflected in getMeshState()
+      break;
+    case 'error':
+      console.warn('[BLE Mesh] Error:', event.message);
+      break;
+  }
+  notifyListeners();
+}
+
+// ─── State subscription ──────────────────────────────────────────────────────
 
 export const subscribeToMesh = (callback: (state: any) => void) => {
   listeners.push(callback);
@@ -153,16 +238,53 @@ const notifyListeners = () => {
   listeners.forEach(l => l(state));
 };
 
-export const getMeshState = () => ({
-  activePacket,
-  currentHops,
-  packetLogs: [...packetLogs],
-  peerCount,
-  isRelayActive: !!activePacket,
-  isGateway: hasInternetAccess,
-  routingMode,
-  uploadedByHop,
-});
+export const getMeshState = () => {
+  const mesh = meshTransport?.state;
+  return {
+    activePacket,
+    currentHops,
+    packetLogs: [...packetLogs],
+    peerCount,
+    isRelayActive: !!activePacket,
+    isGateway: hasInternetAccess,
+    routingMode,
+    uploadedByHop,
+    isScanning: mesh?.isScanning ?? false,
+    isAdvertising: mesh?.isAdvertising ?? false,
+    hasPermission: mesh?.hasPermission ?? false,
+    isBluetoothOn: mesh?.isBluetoothOn ?? false,
+  };
+};
+
+// ─── Mesh Transport Initialization ──────────────────────────────────────────
+
+/** Initialize the BLE mesh transport. Call once on app startup. */
+export const initializeMesh = async (): Promise<boolean> => {
+  if (meshInitialized) return true;
+
+  try {
+    initNetInfo();
+    meshTransport = getMeshTransport();
+    // Subscribe to mesh events
+    meshTransport.subscribe(meshEventHandler);
+    const success = await meshInitializeTransport();
+    meshInitialized = success;
+    return success;
+  } catch (e) {
+    console.error('[SOS] Mesh initialization failed:', e);
+    return false;
+  }
+};
+
+/** Shutdown the BLE mesh transport. */
+export const shutdownMesh = async (): Promise<void> => {
+  if (meshTransport) {
+    await meshTransport.shutdown();
+    resetMeshTransport();
+    meshTransport = null;
+    meshInitialized = false;
+  }
+};
 
 // ─── SOS trigger ─────────────────────────────────────────────────────────────
 
@@ -171,15 +293,14 @@ export const getMeshState = () => ({
  *
  * Routing decision:
  *   • Internet available → upload immediately (routingMode = 'direct'),
- *     then start BLE simulation so mesh peers can also see the packet.
- *   • No internet → enqueue locally (routingMode = 'ble_mesh'),
- *     start BLE simulation — first simulated peer with internet will upload.
+ *     then start BLE mesh so peers can also relay.
+ *   • No internet → send into BLE mesh (routingMode = 'ble_mesh'),
+ *     first internet-connected peer will upload to backend.
  */
 export const sendSos = async (data: Partial<SosPayload>) => {
-  // Clear any running simulation from a previous SOS
-  if (simulationInterval) {
-    clearInterval(simulationInterval);
-    simulationInterval = null;
+  // Clear any running state from a previous SOS
+  if (meshTransport) {
+    // mesh handles its own cleanup
   }
 
   // Build a stable short ID for the log display (e.g. "SOS-A3F2-47")
@@ -190,7 +311,7 @@ export const sendSos = async (data: Partial<SosPayload>) => {
 
   const payload: SosPayload = {
     packetId,
-    originDeviceId: 'f3a9c2e1b8d04a17',
+    originDeviceId: meshTransport?.deviceId ?? 'f3a9c2e1b8d04a17',
     latitude: data.latitude ?? 27.6869,
     longitude: data.longitude ?? 86.7314,
     battery: data.battery ?? 78,
@@ -206,13 +327,13 @@ export const sendSos = async (data: Partial<SosPayload>) => {
   };
 
   // Reset state
-  activePacket  = payload;
-  currentHops   = 0;
-  peerCount     = 1;
+  activePacket = payload;
+  currentHops = 0;
   uploadedByHop = null;
   packetLogs.length = 0;
+  peerCount = meshTransport?.state.peerCount ?? 0;
 
-  // ── Step 1: log that this device originated the SOS ────────────────────────
+  // Step 1: log that this device originated the SOS
   _pushLog(packetLogs, {
     id: shortId,
     origin: 'This Device (Owner SOS)',
@@ -221,22 +342,20 @@ export const sendSos = async (data: Partial<SosPayload>) => {
     status: 'Origin',
   });
 
-  // ── Step 2: decide routing mode ────────────────────────────────────────────
-  // Always do a FRESH internet check at send time — the module-level
-  // hasInternetAccess variable may be stale if NetInfo event hasn't fired yet.
+  // Step 2: decide routing mode - fresh internet check at send time
   let isOnline = hasInternetAccess;
   try {
     const netState = await NetInfo.fetch();
     isOnline = !!netState.isConnected && !!netState.isInternetReachable;
-    hasInternetAccess = isOnline; // keep module state in sync
+    hasInternetAccess = isOnline;
   } catch {
-    // If NetInfo.fetch fails, fall back to the cached value
+    // fall back to cached value
   }
 
   if (isOnline) {
-    // ── DIRECT PATH ──────────────────────────────────────────────────────────
+    // DIRECT PATH - upload immediately
     routingMode = 'direct';
-    notifyListeners(); // update UI immediately with mode
+    notifyListeners();
 
     try {
       const res = await fetch(`${BACKEND}/api/sos`, {
@@ -246,7 +365,7 @@ export const sendSos = async (data: Partial<SosPayload>) => {
       });
 
       if (res.ok || res.status === 409) {
-        uploadedByHop = 0; // hop 0 = this device
+        uploadedByHop = 0;
         _pushLog(packetLogs, {
           id: shortId,
           origin: 'This Device',
@@ -255,51 +374,58 @@ export const sendSos = async (data: Partial<SosPayload>) => {
           status: 'Direct Upload',
         });
       } else {
-        // Server returned an error — log it and fall back to BLE queue
         const errBody = await res.text().catch(() => '');
         console.warn(`[SOS] Direct upload failed: HTTP ${res.status}`, errBody);
         await enqueueSos(payload);
         routingMode = 'ble_mesh';
       }
     } catch (err) {
-      // Network error despite NetInfo saying online — enqueue & try BLE
       console.warn('[SOS] Direct upload fetch error:', err);
       await enqueueSos(payload);
       routingMode = 'ble_mesh';
     }
   } else {
-    // ── BLE MESH PATH ─────────────────────────────────────────────────────────
+    // BLE MESH PATH - send into mesh
     routingMode = 'ble_mesh';
     notifyListeners();
-    // Queue locally so it gets uploaded the moment this device gains internet
     await enqueueSos(payload);
   }
 
   notifyListeners();
 
-  // ── Step 3: BLE simulation loop ────────────────────────────────────────────
-  // Runs regardless of routing mode:
-  //   • In direct mode  — shows peers relaying as a secondary confirmation
-  //   • In BLE mode     — critical path; first internet-connected peer uploads
-  _startBleSimulation(payload, shortId);
+  // Step 3: Send into real BLE mesh (if initialized)
+  if (meshTransport && meshInitialized) {
+    try {
+      await meshTransport.sendSos(payload);
+    } catch (e) {
+      console.error('[SOS] Failed to send into mesh:', e);
+    }
+  } else {
+    // Fallback: log warning if mesh not ready
+    console.warn('[SOS] Mesh not initialized, packet queued only');
+    _pushLog(packetLogs, {
+      id: shortId,
+      origin: 'System',
+      seenFrom: 'Mesh not ready',
+      rssi: '—',
+      status: 'Dedup Skip',
+    });
+  }
 };
 
 // ─── Cancel SOS ──────────────────────────────────────────────────────────────
 
 export const cancelSos = () => {
-  activePacket  = null;
-  currentHops   = 0;
-  peerCount     = 0;
+  activePacket = null;
+  currentHops = 0;
+  peerCount = 0;
   uploadedByHop = null;
-  routingMode   = 'idle';
-  if (simulationInterval) {
-    clearInterval(simulationInterval);
-    simulationInterval = null;
-  }
+  routingMode = 'idle';
+  packetLogs.length = 0;
   notifyListeners();
 };
 
-// ─── Internal helpers ─────────────────────────────────────────────────────────
+// ─── Internal helpers ────────────────────────────────────────────────────────
 
 function _uuid(): string {
   return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
@@ -319,77 +445,4 @@ function _pushLog(
       hour: '2-digit', minute: '2-digit', second: '2-digit',
     }),
   });
-}
-
-/**
- * Simulates BLE packet propagation through nearby peers every 3 seconds.
- *
- * Logic per tick:
- *   1. Increment hop counter + peer count
- *   2. Pick a random virtual peer
- *   3. 70% chance it relays (30% dedup skip)
- *   4. If relayed AND peer has internet (40% chance) → peer uploads to backend
- *      - In BLE mesh mode this is the primary upload path
- *      - In direct mode this is a secondary redundant confirmation (409 is fine)
- *   5. Stop after 10 hops
- */
-function _startBleSimulation(payload: SosPayload, shortId: string) {
-  simulationInterval = setInterval(async () => {
-    currentHops += 1;
-    peerCount = Math.min(12, peerCount + Math.floor(Math.random() * 3) + 1);
-
-    const peerId   = `Peer Device #${Math.floor(10 + Math.random() * 89)}`;
-    const fromId   = `Peer Device #${Math.floor(10 + Math.random() * 89)}`;
-    const rssi     = `-${50 + Math.floor(Math.random() * 40)} dBm`;
-    const isDuped  = Math.random() > 0.7;
-    const hopStatus: PacketLog['status'] = isDuped ? 'Dedup Skip' : 'Relayed';
-
-    _pushLog(packetLogs, {
-      id:       shortId,
-      origin:   'This Device (Owner SOS)',
-      seenFrom: isDuped ? peerId : fromId,
-      rssi,
-      status:   hopStatus,
-    });
-
-    // ── Simulate a peer that has internet uploading the packet ───────────────
-    const peerHasInternet = !isDuped && Math.random() > 0.6;
-    if (peerHasInternet) {
-      const relayPayload: SosPayload = { ...payload, hopCount: currentHops };
-
-      _pushLog(packetLogs, {
-        id:       shortId,
-        origin:   'This Device (Owner SOS)',
-        seenFrom: `${peerId} (Gateway → Internet)`,
-        rssi,
-        status:   'Uploaded',
-      });
-
-      try {
-        const res = await fetch(`${BACKEND}/api/sos`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(relayPayload),
-        });
-        // 202 = first upload by this peer; 409 = already uploaded (fine)
-        if ((res.ok || res.status === 409) && uploadedByHop === null) {
-          uploadedByHop = currentHops;
-          // If we were in BLE mesh mode, the packet is now confirmed uploaded
-          // Switch mode to show it was delivered via mesh
-        }
-      } catch {
-        // Peer upload failed — mesh continues trying through other peers
-      }
-    }
-
-    notifyListeners();
-
-    // Stop after 10 hops to avoid running forever
-    if (currentHops >= 10) {
-      if (simulationInterval) {
-        clearInterval(simulationInterval);
-        simulationInterval = null;
-      }
-    }
-  }, 3000);
 }

@@ -5,9 +5,12 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = __importDefault(require("express"));
 const sos_controller_1 = require("../controllers/sos.controller");
+const sosAction_controller_1 = require("../controllers/sosAction.controller");
 const validate_1 = require("../middleware/validate");
 const sos_schema_1 = require("../schemas/sos.schema");
 const router = express_1.default.Router();
+// One-click action link from dispatch emails (no auth — protected by HMAC token in query)
+router.get('/action', sosAction_controller_1.handleEmailAction);
 router.post('/', (0, validate_1.validate)(sos_schema_1.createSosSchema), sos_controller_1.createSosEvent);
 router.get('/', sos_controller_1.getSosEvents);
 router.get('/:id', sos_controller_1.getSosEvent);

@@ -27,7 +27,7 @@ const app = express();
 const httpServer = createServer(app);
 const io = new SocketIOServer(httpServer, {
   cors: {
-    origin: config.dashboardOrigin,
+    origin: [config.dashboardOrigin, 'http://localhost:3001'],
     methods: ['GET', 'POST']
   }
 });

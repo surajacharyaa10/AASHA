@@ -17,11 +17,7 @@ export interface MobileNotification {
   createdBy?: string;
 }
 
-const BACKEND_URL = Platform.select({
-  ios: 'http://192.168.18.39:4000',
-  android: 'http://192.168.18.39:4000',
-  default: 'http://192.168.18.39:4000',
-});
+import BACKEND_URL from '@/lib/config';
 
 const NOTIF_CACHE_KEY = 'aasha_emergency_notifications_cache';
 

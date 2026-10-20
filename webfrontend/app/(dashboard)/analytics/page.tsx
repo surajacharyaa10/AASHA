@@ -36,6 +36,9 @@ interface AnalyticsSummary {
   totalSos: number;
   pendingSos: number;
   assignedSos: number;
+  enRouteSos: number;
+  onSceneSos: number;
+  falseAlarmSos: number;
   resolvedSos: number;
   totalTeams: number;
   approvedTeams: number;
@@ -199,9 +202,17 @@ export default function AnalyticsPage() {
               ) : (
                 <p className="mt-3 text-3xl font-bold text-slate-900">{s?.totalSos ?? 0}</p>
               )}
-              <div className="mt-2 flex items-center gap-3 text-[11px] font-semibold">
-                <span className="text-amber-600">⏳ {s?.pendingSos ?? 0} Pending</span>
-                <span className="text-blue-600">🔵 {s?.assignedSos ?? 0} Active</span>
+              <div className="mt-2 flex flex-col gap-1.5 text-[11px] font-semibold">
+                <div className="flex gap-3">
+                  <span className="text-amber-600">⏳ {s?.pendingSos ?? 0} Pending</span>
+                  <span className="text-blue-600">📡 {(s?.assignedSos ?? 0) + (s?.enRouteSos ?? 0) + (s?.onSceneSos ?? 0)} Active</span>
+                  <span className="text-amber-600">⚠️ {s?.falseAlarmSos ?? 0} False Alarms</span>
+                </div>
+                <div className="flex gap-3">
+                  <span className="text-orange-600">🚐 {s?.enRouteSos ?? 0} En Route</span>
+                  <span className="text-purple-600">📍 {s?.onSceneSos ?? 0} On Scene</span>
+                  <span className="text-emerald-600">✅ {s?.resolvedSos ?? 0} Resolved</span>
+                </div>
               </div>
             </CardContent>
           </Card>
@@ -333,10 +344,10 @@ export default function AnalyticsPage() {
             </div>
 
             <div className="mt-4 flex flex-wrap items-center justify-between text-xs text-slate-500">
-              <span className="flex items-center gap-1.5">
-                <Flame className="h-4 w-4 text-red-500" />
-                Total {s?.totalSos ?? 0} SOS events · {s?.resolvedSos ?? 0} resolved · {s?.pendingSos ?? 0} pending
-              </span>
+                 <span className="flex items-center gap-1.5">
+                   <Flame className="h-4 w-4 text-red-500" />
+                   Total {s?.totalSos ?? 0} SOS events · {s?.resolvedSos ?? 0} resolved · {s?.falseAlarmSos !== undefined ? `${s.falseAlarmSos} false alarms · ` : ''}{s?.enRouteSos !== undefined ? `${s.enRouteSos} en route · ` : ''}{s?.onSceneSos !== undefined ? `${s.onSceneSos} on scene · ` : ''}{s?.pendingSos ?? 0} pending
+               </span>
               <span>Success rate: <strong className="text-slate-800">{s?.successRate ?? "0"}%</strong></span>
             </div>
           </Card>
@@ -361,10 +372,13 @@ export default function AnalyticsPage() {
               ) : (
                 <div className="space-y-4">
                   {[
-                    { name: "Pending Review", count: s?.pendingSos ?? 0, color: "bg-red-500", text: "text-red-600" },
-                    { name: "Team Dispatched", count: s?.assignedSos ?? 0, color: "bg-blue-500", text: "text-blue-600" },
-                    { name: "Mission Resolved", count: s?.resolvedSos ?? 0, color: "bg-emerald-500", text: "text-emerald-600" },
-                  ].map((cat) => {
+                     { name: "Pending Review", count: s?.pendingSos ?? 0, color: "bg-red-500", text: "text-red-600" },
+                     { name: "Team Assigned", count: s?.assignedSos ?? 0, color: "bg-blue-500", text: "text-blue-600" },
+                     { name: "En Route", count: s?.enRouteSos ?? 0, color: "bg-orange-500", text: "text-orange-600" },
+                     { name: "On Scene", count: s?.onSceneSos ?? 0, color: "bg-purple-500", text: "text-purple-600" },
+                     { name: "False Alarm", count: s?.falseAlarmSos ?? 0, color: "bg-amber-500", text: "text-amber-600" },
+                     { name: "Mission Resolved", count: s?.resolvedSos ?? 0, color: "bg-emerald-500", text: "text-emerald-600" },
+                   ].map((cat) => {
                     const total = s?.totalSos ?? 1;
                     const pct = total > 0 ? Math.round((cat.count / total) * 100) : 0;
                     return (
@@ -491,11 +505,14 @@ export default function AnalyticsPage() {
                       <tr key={ev.id} className="hover:bg-slate-50">
                         <td className="py-3 font-mono font-bold text-slate-800">{ev.id.slice(0, 8)}…</td>
                         <td className="py-3">
-                          <span className={`inline-block rounded-full px-2 py-0.5 text-[10px] font-bold border ${
-                            ev.status === "pending" ? "bg-red-50 text-red-700 border-red-200"
-                            : ev.status === "assigned" ? "bg-blue-50 text-blue-700 border-blue-200"
-                            : "bg-emerald-50 text-emerald-700 border-emerald-200"
-                          }`}>
+                           <span className={`inline-block rounded-full px-2 py-0.5 text-[10px] font-bold border ${
+                             ev.status === "pending" ? "bg-red-50 text-red-700 border-red-200"
+                             : ev.status === "assigned" ? "bg-blue-50 text-blue-700 border-blue-200"
+                             : ev.status === "en_route" ? "bg-orange-50 text-orange-700 border-orange-200"
+                             : ev.status === "on_scene" ? "bg-purple-50 text-purple-700 border-purple-200"
+                             : ev.status === "false_alarm" ? "bg-amber-50 text-amber-700 border-amber-200"
+                             : "bg-emerald-50 text-emerald-700 border-emerald-200"
+                           }`}>
                             {ev.status}
                           </span>
                         </td>

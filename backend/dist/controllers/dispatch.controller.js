@@ -77,17 +77,24 @@ const dispatchRescueTeam = async (req, res) => {
                 assignedTeamName: team.teamName,
             });
         }
-        // 4. Send dispatch emails (non-blocking - report results but don't fail request)
+        // 4. Send dispatch emails — include victim profile from the SOS document
+        const sosDoc = await db.collection('sos_events').findOne({ packetId: sosId });
         const emailResult = await (0, dispatchService_1.sendDispatchEmails)({
             sosId,
             sosLat,
             sosLng,
             sosPlace: place || `${sosLat.toFixed(4)}°N, ${sosLng.toFixed(4)}°E`,
-            callerNote: callerNote || 'Emergency assistance required.',
-            battery: battery ?? 100,
-            meshHops: meshHops ?? 0,
+            callerNote: callerNote || sosDoc?.note || 'Emergency assistance required.',
+            battery: battery ?? sosDoc?.battery ?? 100,
+            meshHops: meshHops ?? sosDoc?.hopCount ?? 0,
             receivedTime: receivedTime || new Date().toLocaleTimeString('en-NP', { timeZone: 'Asia/Kathmandu' }),
             team,
+            // Victim profile (may be null if the user hasn't filled their profile)
+            victimName: sosDoc?.name ?? undefined,
+            victimPhone: sosDoc?.phone ?? undefined,
+            victimAddress: sosDoc?.address ?? undefined,
+            victimBloodGroup: sosDoc?.bloodGroup ?? undefined,
+            victimEmail: sosDoc?.email ?? undefined,
         });
         return res.json({
             success: true,

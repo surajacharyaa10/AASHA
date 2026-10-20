@@ -15,8 +15,26 @@ export const STATUS_STYLES: Record<
     badgeText: "text-red-700",
     ring: "border-red-400 ring-2 ring-red-100",
   },
-  assigned: {
+   assigned: {
     dot: "bg-amber-500",
+    badgeBg: "bg-amber-50 border border-amber-200",
+    badgeText: "text-amber-700",
+    ring: "border-amber-400 ring-2 ring-amber-100",
+  },
+  en_route: {
+    dot: "bg-orange-400",
+    badgeBg: "bg-orange-50 border border-orange-200",
+    badgeText: "text-orange-700",
+    ring: "border-orange-400 ring-2 ring-orange-100",
+  },
+  on_scene: {
+    dot: "bg-blue-400",
+    badgeBg: "bg-blue-50 border border-blue-200",
+    badgeText: "text-blue-700",
+    ring: "border-blue-400 ring-2 ring-blue-100",
+  },
+  false_alarm: {
+    dot: "bg-amber-400",
     badgeBg: "bg-amber-50 border border-amber-200",
     badgeText: "text-amber-700",
     ring: "border-amber-400 ring-2 ring-amber-100",
@@ -49,6 +67,12 @@ export function mapApiEventToSosEvent(apiEvent: any) {
         ? "Priority 1 · Immediate Review"
         : apiEvent.status === "assigned"
         ? "Priority 2 · Unit En Route"
+        : apiEvent.status === "en_route"
+        ? "Priority 3 · Team En Route"
+        : apiEvent.status === "on_scene"
+        ? "Priority 4 · On Scene"
+        : apiEvent.status === "false_alarm"
+        ? "False Alarm · Cleared"
         : "Resolved · Mission Complete",
     battery: apiEvent.battery ?? 100,
     meshHops: apiEvent.hopCount || 0,
@@ -60,7 +84,7 @@ export function mapApiEventToSosEvent(apiEvent: any) {
     elevation: 2860,
     terrainLabel: "marked SOS location",
     callerNote:
-      apiEvent.note && apiEvent.note.trim().length > 0 ? apiEvent.note.trim() : "Nothing",
+      apiEvent.note && apiEvent.note.trim().length > 0 ? apiEvent.note.trim() : undefined,
     name: apiEvent.name ?? undefined,
     address: apiEvent.address ?? undefined,
     email: apiEvent.email ?? undefined,
