@@ -1,4 +1,4 @@
-import { Request, Response } from 'express';
+import { Request, Response as ExpressResponse } from 'express';
 
 const GEOAPIFY_API_KEY = process.env.GEOAPIFY_API_KEY || '';
 const GEOAPIFY_PLACES_URL = 'https://api.geoapify.com/v2/places';
@@ -130,7 +130,7 @@ async function fetchPage(offset: number): Promise<GeoapifyFeature[]> {
   return Array.isArray(data.features) ? data.features : [];
 }
 
-export const getNepalResources = async (req: Request, res: Response) => {
+export const getNepalResources = async (req: Request, res: ExpressResponse) => {
   try {
     const cached = getCachedData();
     if (cached) {
