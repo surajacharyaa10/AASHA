@@ -1,4 +1,4 @@
-import { Request, Response } from 'express';
+import { Request, Response as ExpressResponse } from 'express';
 import { redisClient } from '../config/redis';
 
 // USGS earthquake feed (free, no API key). Proxied server-side so the browser
@@ -58,7 +58,7 @@ function severityFromAlert(alert: string | null | undefined, mag: number): strin
   return 'Green';
 }
 
-export const getLiveHazards = async (req: Request, res: Response) => {
+export const getLiveHazards = async (req: Request, res: ExpressResponse) => {
   const cacheKey = `live-hazards:${NEPAL_CENTER.lat}:${NEPAL_CENTER.lng}:${RADIUS_KM}`;
 
   // Serve from cache

@@ -1,4 +1,4 @@
-import { Request, Response } from 'express';
+import { Request, Response as ExpressResponse } from 'express';
 import { redisClient } from '../config/redis';
 
 const WEATHERSTACK_API_KEY = process.env.WEATHERSTACK_API_KEY;
@@ -7,7 +7,7 @@ const WEATHERSTACK_BASE_URL = 'http://api.weatherstack.com';
 // Cache weather for 10 minutes to avoid hitting the Weatherstack rate limit.
 const CACHE_TTL_SECONDS = 600;
 
-export const getCurrentWeather = async (req: Request, res: Response) => {
+export const getCurrentWeather = async (req: Request, res: ExpressResponse) => {
   try {
     const { query } = req.query;
 

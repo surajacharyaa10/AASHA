@@ -1,4 +1,4 @@
-import { Request, Response } from 'express';
+import { Request, Response as ExpressResponse } from 'express';
 
 const NEWSDATA_API_KEY = process.env.NEWSDATA_API_KEY || '';
 const NEWSDATA_BASE_URL = 'https://newsdata.io/api/1/latest';
@@ -28,7 +28,7 @@ interface NewsResponse {
   results: NewsArticle[];
 }
 
-export const getLatestNews = async (req: Request, res: Response) => {
+export const getLatestNews = async (req: Request, res: ExpressResponse) => {
   try {
     if (!NEWSDATA_API_KEY) {
       return res.status(500).json({ status: 'error', message: 'NEWSDATA_API_KEY not configured', results: [] });
